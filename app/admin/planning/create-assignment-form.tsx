@@ -4,11 +4,18 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { locationSchema, type LocationInput } from "@/lib/validation/location";
-import { createLocation, updateLocation } from "./actions";
+import { createAssignmentSchema, type CreateAssignmentInput } from "@/lib/validation/assignment";
+import { createAssignment } from "./actions";
+import { EmployeeSelector, type EmployeeOption } from "@/components/planning/employee-selector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -26,33 +33,43 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
-interface LocationFormProps {
-  trigger: React.ReactNode;
-  customerId: string;
-  location?: { id: string } & LocationInput;
+export interface ServiceOption {
+  id: string;
+  label: string;
 }
 
-export function LocationForm({ trigger, customerId, location }: LocationFormProps) {
+interface CreateAssignmentFormProps {
+  trigger: React.ReactNode;
+  services: ServiceOption[];
+  employees: EmployeeOption[];
+  defaultDate?: string;
+  defaultEmployeeId?: string;
+}
+
+export function CreateAssignmentForm({
+  trigger,
+  services,
+  employees,
+  defaultDate,
+  defaultEmployeeId,
+}: CreateAssignmentFormProps) {
   const [open, setOpen] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
 
-  const form = useForm<LocationInput>({
-    resolver: zodResolver(locationSchema),
+  const form = useForm<CreateAssignmentInput>({
+    resolver: zodResolver(createAssignmentSchema),
     defaultValues: {
-      name: location?.name ?? "",
-      addressLine: location?.addressLine ?? "",
-      city: location?.city ?? "",
-      postalCode: location?.postalCode ?? "",
-      province: location?.province ?? "",
-      notes: location?.notes ?? "",
+      serviceId: "",
+      date: defaultDate ?? "",
+      startTime: "08:00",
+      endTime: "10:00",
+      employeeId: defaultEmployeeId,
     },
   });
 
-  async function onSubmit(values: LocationInput) {
+  async function onSubmit(values: CreateAssignmentInput) {
     setServerError(null);
-    const result = location
-      ? await updateLocation(customerId, location.id, values)
-      : await createLocation(customerId, values);
+    const result = await createAssignment(values);
 
     if (!result.success) {
       setServerError(result.error);
@@ -62,18 +79,23 @@ export function LocationForm({ trigger, customerId, location }: LocationFormProp
     setOpen(false);
   }
 
-  // Reset on OPEN, not on close — see EmployeeForm for why (this
-  // component's useForm state outlives the dialog closing).
+  // Reset on OPEN, not on close: this component's useForm state outlives
+  // the dialog closing (it's a persistent trigger, not remounted per use),
+  // so whichever path closed it last — successful submit, Annulla, Escape,
+  // outside-click — could leave stale values behind. Resetting synchronously
+  // whenever it opens guarantees a clean form regardless of dismiss path or
+  // mount history, confirmed necessary via browser-driven testing:
+  // cancelling out of a conflict error left the employee selection behind
+  // for the next "Nuova attività".
   function handleOpenChange(next: boolean) {
     setOpen(next);
     if (next) {
       form.reset({
-        name: location?.name ?? "",
-        addressLine: location?.addressLine ?? "",
-        city: location?.city ?? "",
-        postalCode: location?.postalCode ?? "",
-        province: location?.province ?? "",
-        notes: location?.notes ?? "",
+        serviceId: "",
+        date: defaultDate ?? "",
+        startTime: "08:00",
+        endTime: "10:00",
+        employeeId: defaultEmployeeId,
       });
       setServerError(null);
     }
@@ -84,20 +106,31 @@ export function LocationForm({ trigger, customerId, location }: LocationFormProp
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{location ? "Modifica location" : "Nuova location"}</DialogTitle>
+          <DialogTitle>Nuova attività</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="name"
+              name="serviceId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Nome</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
+                  <FormLabel>Servizio</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Seleziona un servizio" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {services.map((service) => (
+                        <SelectItem key={service.id} value={service.id}>
+                          {service.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
@@ -105,27 +138,27 @@ export function LocationForm({ trigger, customerId, location }: LocationFormProp
 
             <FormField
               control={form.control}
-              name="addressLine"
+              name="date"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Indirizzo</FormLabel>
+                  <FormLabel>Data</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <Input type="date" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="city"
+                name="startTime"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Città</FormLabel>
+                    <FormLabel>Ora inizio</FormLabel>
                     <FormControl>
-                      <Input {...field} />
+                      <Input type="time" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -133,25 +166,12 @@ export function LocationForm({ trigger, customerId, location }: LocationFormProp
               />
               <FormField
                 control={form.control}
-                name="postalCode"
+                name="endTime"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>CAP</FormLabel>
+                    <FormLabel>Ora fine</FormLabel>
                     <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="province"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Provincia</FormLabel>
-                    <FormControl>
-                      <Input {...field} maxLength={2} placeholder="RM" />
+                      <Input type="time" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -161,12 +181,16 @@ export function LocationForm({ trigger, customerId, location }: LocationFormProp
 
             <FormField
               control={form.control}
-              name="notes"
+              name="employeeId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Note</FormLabel>
+                  <FormLabel>Dipendente</FormLabel>
                   <FormControl>
-                    <Textarea {...field} />
+                    <EmployeeSelector
+                      employees={employees}
+                      value={field.value}
+                      onChange={field.onChange}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

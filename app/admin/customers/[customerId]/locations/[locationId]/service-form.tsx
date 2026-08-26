@@ -59,15 +59,25 @@ export function ServiceForm({ trigger, customerId, locationId, service }: Servic
     }
 
     setOpen(false);
-    // In create mode, reset to blank defaults (not `values`) — this
-    // component's useForm state outlives the dialog closing, so without
-    // this the next "Nuovo servizio" click would reopen pre-filled with
-    // whatever was just submitted instead of a clean form.
-    form.reset(service ? values : undefined);
+  }
+
+  // Reset on OPEN, not on close — see EmployeeForm for why (this
+  // component's useForm state outlives the dialog closing).
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (next) {
+      form.reset({
+        name: service?.name ?? "",
+        description: service?.description ?? "",
+        estimatedDurationMinutes: service?.estimatedDurationMinutes ?? 60,
+        operationalNotes: service?.operationalNotes ?? "",
+      });
+      setServerError(null);
+    }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -138,7 +148,7 @@ export function ServiceForm({ trigger, customerId, locationId, service }: Servic
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setOpen(false)}
+                onClick={() => handleOpenChange(false)}
                 disabled={form.formState.isSubmitting}
               >
                 Annulla

@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
-import { addMinutesToTimeValue } from "@/lib/dates";
+import { addDaysToDateValue, addMinutesToTimeValue, startOfUtcDay } from "@/lib/dates";
 
 // Default rolling planning horizon: how far into the future dated
 // Assignments get generated from active RecurringSchedules. Keeping this a
@@ -10,18 +10,8 @@ import { addMinutesToTimeValue } from "@/lib/dates";
 // section 10 ("do not create infinite future records").
 export const DEFAULT_HORIZON_WEEKS = 8;
 
-function startOfUtcDay(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-}
-
-function addUtcDays(date: Date, days: number): Date {
-  const result = new Date(date);
-  result.setUTCDate(result.getUTCDate() + days);
-  return result;
-}
-
 function addUtcWeeks(date: Date, weeks: number): Date {
-  return addUtcDays(date, weeks * 7);
+  return addDaysToDateValue(date, weeks * 7);
 }
 
 // Every date in [start, end] (inclusive) that falls on dayOfWeek
@@ -33,11 +23,11 @@ function datesForDayOfWeek(dayOfWeek: number, start: Date, end: Date): Date[] {
 
   let cursor = startOfUtcDay(start);
   const daysUntilMatch = (dayOfWeek - cursor.getUTCDay() + 7) % 7;
-  cursor = addUtcDays(cursor, daysUntilMatch);
+  cursor = addDaysToDateValue(cursor, daysUntilMatch);
 
   while (cursor <= end) {
     dates.push(cursor);
-    cursor = addUtcDays(cursor, 7);
+    cursor = addDaysToDateValue(cursor, 7);
   }
 
   return dates;

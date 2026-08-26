@@ -77,15 +77,26 @@ export function RecurringScheduleForm({
     }
 
     setOpen(false);
-    // In create mode, reset to blank defaults (not `values`) — this
-    // component's useForm state outlives the dialog closing, so without
-    // this the next "Nuova ricorrenza" click would reopen pre-filled with
-    // whatever was just submitted instead of a clean form.
-    form.reset(schedule ? values : undefined);
+  }
+
+  // Reset on OPEN, not on close — see EmployeeForm for why (this
+  // component's useForm state outlives the dialog closing).
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (next) {
+      form.reset({
+        dayOfWeek: schedule?.dayOfWeek ?? 1,
+        startTime: schedule?.startTime ?? "08:00",
+        estimatedDurationMinutes: schedule?.estimatedDurationMinutes ?? 60,
+        effectiveFrom: schedule?.effectiveFrom ?? new Date().toISOString().slice(0, 10),
+        effectiveUntil: schedule?.effectiveUntil ?? "",
+      });
+      setServerError(null);
+    }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -186,7 +197,7 @@ export function RecurringScheduleForm({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setOpen(false)}
+                onClick={() => handleOpenChange(false)}
                 disabled={form.formState.isSubmitting}
               >
                 Annulla

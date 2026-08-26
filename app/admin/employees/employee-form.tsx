@@ -58,15 +58,30 @@ export function EmployeeForm({ trigger, employee }: EmployeeFormProps) {
     }
 
     setOpen(false);
-    // In create mode, reset to blank defaults (not `values`) — this
-    // component's useForm state outlives the dialog closing, so without
-    // this the next "Nuovo dipendente" click would reopen pre-filled with
-    // whatever was just submitted instead of a clean form.
-    form.reset(employee ? values : undefined);
+  }
+
+  // Reset on OPEN, not on close: this component's useForm state outlives
+  // the dialog closing (it's a persistent trigger, not remounted per use),
+  // so whichever path closed it last — submit, Annulla, Escape,
+  // outside-click — could leave stale values behind. Resetting whenever it
+  // opens guarantees a clean (or correctly re-synced, in edit mode) form
+  // regardless of dismiss path.
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (next) {
+      form.reset({
+        firstName: employee?.firstName ?? "",
+        lastName: employee?.lastName ?? "",
+        phone: employee?.phone ?? "",
+        email: employee?.email ?? "",
+        notes: employee?.notes ?? "",
+      });
+      setServerError(null);
+    }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
         <DialogHeader>
@@ -152,7 +167,7 @@ export function EmployeeForm({ trigger, employee }: EmployeeFormProps) {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setOpen(false)}
+                onClick={() => handleOpenChange(false)}
                 disabled={form.formState.isSubmitting}
               >
                 Annulla

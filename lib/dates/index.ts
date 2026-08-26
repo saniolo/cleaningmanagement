@@ -19,6 +19,31 @@ export const DAY_OF_WEEK_LABELS_IT = [
   "Sabato",
 ] as const;
 
+export const DAY_OF_WEEK_SHORT_LABELS_IT = [
+  "Dom",
+  "Lun",
+  "Mar",
+  "Mer",
+  "Gio",
+  "Ven",
+  "Sab",
+] as const;
+
+export const MONTH_LABELS_IT = [
+  "gennaio",
+  "febbraio",
+  "marzo",
+  "aprile",
+  "maggio",
+  "giugno",
+  "luglio",
+  "agosto",
+  "settembre",
+  "ottobre",
+  "novembre",
+  "dicembre",
+] as const;
+
 // Prisma represents @db.Date/@db.Time columns as JS Date objects, but reads
 // and writes them using UTC methods internally — using local getHours()/
 // setDate() etc. on them would silently shift by the server process's TZ.
@@ -50,4 +75,33 @@ export function dateValueToDateString(value: Date): string {
   const month = String(value.getUTCMonth() + 1).padStart(2, "0");
   const day = String(value.getUTCDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+export function startOfUtcDay(value: Date): Date {
+  return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()));
+}
+
+export function addDaysToDateValue(value: Date, days: number): Date {
+  const result = new Date(value);
+  result.setUTCDate(result.getUTCDate() + days);
+  return result;
+}
+
+// Monday of the ISO week containing `value` (Italian weeks start on Monday,
+// but RecurringSchedule.dayOfWeek/Assignment.date follow JS's Sunday=0
+// convention internally — this is the one place that reconciles the two).
+export function getMondayOfWeek(value: Date): Date {
+  const day = startOfUtcDay(value).getUTCDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  return addDaysToDateValue(value, diffToMonday);
+}
+
+export function formatShortDateIT(value: Date): string {
+  const day = String(value.getUTCDate()).padStart(2, "0");
+  const month = String(value.getUTCMonth() + 1).padStart(2, "0");
+  return `${day}/${month}`;
+}
+
+export function formatLongDateIT(value: Date): string {
+  return `${value.getUTCDate()} ${MONTH_LABELS_IT[value.getUTCMonth()]} ${value.getUTCFullYear()}`;
 }
