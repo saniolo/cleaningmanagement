@@ -60,7 +60,11 @@ export function LocationForm({ trigger, customerId, location }: LocationFormProp
     }
 
     setOpen(false);
-    form.reset(values);
+    // In create mode, reset to blank defaults (not `values`) — this
+    // component's useForm state outlives the dialog closing, so without
+    // this the next "Nuova location" click would reopen pre-filled with
+    // whatever was just submitted instead of a clean form.
+    form.reset(location ? values : undefined);
   }
 
   return (

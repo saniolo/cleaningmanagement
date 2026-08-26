@@ -59,7 +59,11 @@ export function ServiceForm({ trigger, customerId, locationId, service }: Servic
     }
 
     setOpen(false);
-    form.reset(values);
+    // In create mode, reset to blank defaults (not `values`) — this
+    // component's useForm state outlives the dialog closing, so without
+    // this the next "Nuovo servizio" click would reopen pre-filled with
+    // whatever was just submitted instead of a clean form.
+    form.reset(service ? values : undefined);
   }
 
   return (

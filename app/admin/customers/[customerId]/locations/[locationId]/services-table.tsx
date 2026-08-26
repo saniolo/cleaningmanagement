@@ -1,6 +1,7 @@
 "use client";
 
-import { Pencil, Power } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, Pencil, Power } from "lucide-react";
 
 import type { Service } from "@prisma/client";
 import { toggleServiceActive } from "./actions";
@@ -84,6 +85,13 @@ export function ServicesTable({
                     await toggleServiceActive(customerId, locationId, service.id);
                   }}
                 />
+                <Button variant="ghost" size="icon" title="Apri" asChild>
+                  <Link
+                    href={`/admin/customers/${customerId}/locations/${locationId}/services/${service.id}`}
+                  >
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
               </div>
             </TableCell>
           </TableRow>

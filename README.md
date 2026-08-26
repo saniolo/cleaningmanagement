@@ -4,7 +4,7 @@ Piattaforma di gestione turni per un'azienda di pulizie. Vedi [`PROJECT_SPEC.md`
 
 Stack: **Next.js 14 App Router** · **TypeScript** · **Tailwind CSS** · **shadcn/ui** · **NextAuth (Auth.js) v4** · **Prisma** · **PostgreSQL**
 
-Stato: **Milestone 2 — Master data** completata. Login admin, route protette, link personale dipendenti, e CRUD completo per Dipendenti/Clienti/Location/Servizi (con attivo/inattivo, validazione Zod server-side, empty state). Pianificazione, assenze e sostituzioni arrivano nelle milestone successive, una per volta e su approvazione.
+Stato: **Milestone 3 — Ricorrenze e generazione attività** completata. Login admin, route protette, link personale dipendenti, CRUD Dipendenti/Clienti/Location/Servizi, ricorrenze settimanali per servizio e motore di generazione (idempotente, orizzonte mobile di 8 settimane, trigger manuale in `/admin/settings` + Vercel Cron giornaliero). Pianificazione, assenze e sostituzioni arrivano nelle milestone successive, una per volta e su approvazione.
 
 ## Setup
 
