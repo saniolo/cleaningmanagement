@@ -38,7 +38,10 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <h1 className="text-2xl font-bold text-center mb-6">Accedi</h1>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* method="post" is a fallback, not the primary path: if JS hasn't
+            hydrated yet and the browser submits natively, credentials go in
+            a POST body instead of leaking into the URL/history/referrer. */}
+        <form method="post" onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input id="email" name="email" type="email" required autoComplete="email" />
