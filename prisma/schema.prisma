@@ -1,67 +1,274 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
+// Cleaning Workforce Management — domain schema (Milestone 0)
+// See PROJECT_SPEC.md and the approved plan for the rationale behind each decision.
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql" // or "sqlite" for local dev (note: the Role enum below requires Postgres/MySQL — SQLite's Prisma connector doesn't support enums)
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String    @unique
-  emailVerified DateTime?
-  image         String?
-  password      String?   // null if using OAuth
-  role          Role      @default(USER)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+// ---------------------------------------------------------------------------
+// Company & auth identity
+// ---------------------------------------------------------------------------
 
-  accounts Account[]
-  sessions Session[]
-}
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  timezone  String   @default("Europe/Rome")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-model Account {
-  id                String  @id @default(cuid())
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
+  users     User[]
+  employees Employee[]
+  customers Customer[]
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-}
-
-model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model VerificationToken {
-  identifier String
-  token      String   @unique
-  expires    DateTime
-
-  @@unique([identifier, token])
+  @@map("companies")
 }
 
 enum Role {
-  USER
   ADMIN
+  EMPLOYEE
+}
+
+// Authentication identity. Only ADMIN users are created in Milestone 1;
+// EMPLOYEE users will be created once real employee login is introduced
+// (employees currently use a personal access-token link, see Employee.accessToken).
+model User {
+  id                 String   @id @default(cuid())
+  companyId          String
+  email              String   @unique
+  password           String
+  role               Role
+  mustChangePassword Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  company  Company   @relation(fields: [companyId], references: [id])
+  employee Employee?
+
+  @@index([companyId])
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// Employees
+// ---------------------------------------------------------------------------
+
+model Employee {
+  id          String   @id @default(cuid())
+  companyId   String
+  userId      String?  @unique // set only once real employee login is introduced
+  firstName   String
+  lastName    String
+  phone       String?
+  email       String?
+  notes       String?
+  active      Boolean  @default(true)
+  // Opaque, unguessable token backing the personal dashboard link (/app/[token]).
+  // Generated with crypto.randomBytes, never a sequential/guessable id.
+  accessToken String   @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company              Company               @relation(fields: [companyId], references: [id])
+  user                 User?                 @relation(fields: [userId], references: [id])
+  assignments          Assignment[]
+  absenceRequests      AbsenceRequest[]
+  replacementRequests  ReplacementRequest[]
+
+  @@index([companyId, active])
+  @@map("employees")
+}
+
+// ---------------------------------------------------------------------------
+// Customers, locations, services
+// ---------------------------------------------------------------------------
+
+model Customer {
+  id        String   @id @default(cuid())
+  companyId String
+  name      String
+  notes     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company   Company    @relation(fields: [companyId], references: [id])
+  locations Location[]
+
+  @@index([companyId, active])
+  @@map("customers")
+}
+
+model Location {
+  id          String   @id @default(cuid())
+  companyId   String
+  customerId  String
+  name        String
+  addressLine String
+  city        String
+  postalCode  String
+  province    String
+  notes       String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  customer Customer  @relation(fields: [customerId], references: [id])
+  services Service[]
+
+  @@index([companyId, active])
+  @@index([customerId])
+  @@map("locations")
+}
+
+model Service {
+  id                       String   @id @default(cuid())
+  companyId                String
+  locationId               String
+  name                     String
+  description              String?
+  estimatedDurationMinutes Int
+  operationalNotes         String?
+  active                   Boolean  @default(true)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  location           Location            @relation(fields: [locationId], references: [id])
+  recurringSchedules RecurringSchedule[]
+  assignments        Assignment[]
+
+  @@index([companyId, active])
+  @@index([locationId])
+  @@map("services")
+}
+
+// ---------------------------------------------------------------------------
+// Recurring schedules (templates) & dated assignments
+// ---------------------------------------------------------------------------
+
+// Template for a weekly recurring cleaning activity. Actual dated Assignments
+// are generated from active schedules by lib/scheduling — see the generation
+// strategy documented in the approved plan.
+model RecurringSchedule {
+  id                       String    @id @default(cuid())
+  companyId                String
+  serviceId                String
+  dayOfWeek                Int // 0 = Sunday .. 6 = Saturday
+  startTime                DateTime  @db.Time
+  estimatedDurationMinutes Int
+  effectiveFrom            DateTime  @db.Date
+  effectiveUntil           DateTime? @db.Date
+  active                   Boolean   @default(true)
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  service     Service      @relation(fields: [serviceId], references: [id])
+  assignments Assignment[]
+
+  @@index([companyId, active])
+  @@map("recurring_schedules")
+}
+
+enum AssignmentStatus {
+  UNASSIGNED
+  ASSIGNED
+}
+
+// A concrete, dated occurrence of a cleaning activity. Never deleted when an
+// employee becomes unavailable — only the employee allocation changes and the
+// status reverts to UNASSIGNED (see PROJECT_SPEC.md section 17).
+model Assignment {
+  id                        String           @id @default(cuid())
+  companyId                 String
+  serviceId                 String
+  employeeId                String?
+  date                       DateTime         @db.Date
+  startTime                  DateTime         @db.Time
+  endTime                    DateTime         @db.Time
+  status                     AssignmentStatus @default(UNASSIGNED)
+  sourceRecurringScheduleId  String?
+  createdAt                  DateTime         @default(now())
+  updatedAt                  DateTime         @updatedAt
+
+  service             Service              @relation(fields: [serviceId], references: [id])
+  employee            Employee?            @relation(fields: [employeeId], references: [id])
+  sourceSchedule       RecurringSchedule?  @relation(fields: [sourceRecurringScheduleId], references: [id])
+  replacementRequests  ReplacementRequest[]
+
+  @@index([companyId, date])
+  @@index([employeeId, date])
+  // Postgres treats NULLs as distinct, so this only enforces idempotent
+  // generation among assignments created from a recurring schedule; manually
+  // created assignments (sourceRecurringScheduleId = null) are unaffected.
+  @@unique([sourceRecurringScheduleId, date])
+  @@map("assignments")
+}
+
+// ---------------------------------------------------------------------------
+// Absences
+// ---------------------------------------------------------------------------
+
+enum AbsenceType {
+  VACATION
+  PERMISSION
+  SICKNESS
+}
+
+enum AbsenceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model AbsenceRequest {
+  id         String        @id @default(cuid())
+  companyId  String
+  employeeId String
+  type       AbsenceType
+  startDate  DateTime      @db.Date
+  endDate    DateTime      @db.Date
+  notes      String?
+  status     AbsenceStatus @default(PENDING)
+  reviewedBy String?
+  reviewedAt DateTime?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([companyId, status])
+  @@index([employeeId, startDate, endDate])
+  @@map("absence_requests")
+}
+
+// ---------------------------------------------------------------------------
+// Replacements
+// ---------------------------------------------------------------------------
+
+enum ReplacementStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+model ReplacementRequest {
+  id                 String            @id @default(cuid())
+  companyId          String
+  assignmentId       String
+  proposedEmployeeId String
+  status             ReplacementStatus @default(PENDING)
+  createdAt          DateTime          @default(now())
+  respondedAt        DateTime?
+
+  assignment       Assignment @relation(fields: [assignmentId], references: [id])
+  proposedEmployee Employee   @relation(fields: [proposedEmployeeId], references: [id])
+
+  @@index([assignmentId, status])
+  @@index([proposedEmployeeId, status])
+  @@map("replacement_requests")
 }

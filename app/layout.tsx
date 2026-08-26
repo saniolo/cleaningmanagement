@@ -7,17 +7,13 @@ const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: {
-    default: "My App",
-    template: "%s | My App",
+    default: "Gestione Pulizie",
+    template: "%s | Gestione Pulizie",
   },
-  description: "Next.js boilerplate with Auth, Prisma & Tailwind",
+  description: "Piattaforma di gestione turni per aziende di pulizie",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="it" suppressHydrationWarning>
       <body className={inter.className}>

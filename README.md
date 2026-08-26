@@ -1,6 +1,10 @@
-# Next.js Boilerplate
+# Gestione Pulizie — Cleaning Workforce Management
 
-Stack: **Next.js 14 App Router** · **TypeScript** · **Tailwind CSS** · **NextAuth v4** · **Prisma**
+Piattaforma di gestione turni per un'azienda di pulizie. Vedi [`PROJECT_SPEC.md`](./PROJECT_SPEC.md) per la specifica completa e il piano approvato in `/.claude/plans/` per l'architettura di dettaglio.
+
+Stack: **Next.js 14 App Router** · **TypeScript** · **Tailwind CSS** · **shadcn/ui** · **NextAuth (Auth.js) v4** · **Prisma** · **PostgreSQL**
+
+Stato: **Milestone 0 — Foundation** completata. Nessuna logica di business è ancora implementata (auth, anagrafiche, pianificazione, assenze, sostituzioni arrivano nelle milestone successive, una per volta e su approvazione).
 
 ## Setup
 
@@ -14,27 +18,17 @@ npm install
 
 ```bash
 cp .env.example .env.local
+cp .env.example .env   # il Prisma CLI legge solo .env, Next.js legge .env.local
 ```
 
-Modifica `.env.local` con i tuoi valori:
+Genera `NEXTAUTH_SECRET` con `openssl rand -base64 32` (va solo in `.env.local`).
 
-- `DATABASE_URL` — stringa di connessione al DB (PostgreSQL o SQLite)
-- `NEXTAUTH_SECRET` — genera con `openssl rand -base64 32`
-- `NEXTAUTH_URL` — URL base (es. `http://localhost:3000`)
-- Provider OAuth opzionali: `GITHUB_*`, `GOOGLE_*`
-
-### 3. Setup database
+### 3. Avvia il database (Postgres locale via Docker)
 
 ```bash
-# Per SQLite (sviluppo locale rapido), cambia in schema.prisma:
-# provider = "sqlite"
-# url = "file:./dev.db"
-
-npm run db:push       # Sincronizza schema → DB (dev)
-# oppure
-npm run db:migrate    # Crea migration (produzione)
-
-npm run db:generate   # Rigenera il Prisma Client
+docker compose up -d
+npm run db:migrate     # applica le migration
+npm run db:generate    # rigenera il Prisma Client
 ```
 
 ### 4. Avvia in sviluppo
@@ -45,46 +39,58 @@ npm run dev
 
 Apri [http://localhost:3000](http://localhost:3000)
 
+> Nessun utente admin è ancora seedato: il login non funzionerà finché la Milestone 1 (auth) e il seed script non saranno implementati.
+
 ---
 
 ## Struttura
 
 ```
 ├── app/
-│   ├── (auth)/
-│   │   ├── login/page.tsx
-│   │   └── register/page.tsx
-│   ├── (dashboard)/
-│   │   └── dashboard/page.tsx
-│   ├── api/
-│   │   ├── auth/[...nextauth]/route.ts
-│   │   └── register/route.ts
-│   ├── layout.tsx
-│   ├── page.tsx
-│   └── providers.tsx
+│   ├── (auth)/login/          Login admin (NextAuth credentials)
+│   ├── admin/                 Area amministratore (protetta da middleware, ruolo ADMIN)
+│   │   ├── planning/          Pianificazione settimanale
+│   │   ├── employees/         Dipendenti
+│   │   ├── customers/         Clienti / location / servizi
+│   │   ├── absences/          Assenze
+│   │   ├── unassigned/        Attività da assegnare
+│   │   └── settings/
+│   ├── app/[token]/           Dashboard dipendente — link personale, nessun login
+│   │   ├── replacements/
+│   │   ├── absences/
+│   │   └── profile/
+│   └── api/auth/[...nextauth]/
+├── components/
+│   ├── ui/                    shadcn/ui (Radix + Tailwind v3)
+│   ├── admin/                 Nav e componenti area admin
+│   ├── employee/              Nav e componenti area dipendente
+│   └── shared/                PageHeader, EmptyState, ecc.
 ├── lib/
-│   ├── auth.ts        # Configurazione NextAuth
-│   ├── prisma.ts      # Singleton Prisma Client
-│   └── utils.ts       # Utility cn()
+│   ├── auth/                  Configurazione NextAuth (solo ADMIN, no OAuth)
+│   ├── db/                    Prisma Client singleton
+│   └── dates/                 Timezone centralizzato (Europe/Rome)
 ├── prisma/
-│   └── schema.prisma  # Modello DB (User, Account, Session)
-├── types/
-│   └── next-auth.d.ts # Estensione tipi sessione
-├── styles/
-│   └── globals.css
-└── middleware.ts      # Protezione route autenticate
+│   └── schema.prisma          Modello di dominio completo
+├── styles/globals.css
+└── middleware.ts              Protegge /admin/** (richiede sessione ADMIN)
 ```
+
+## Accesso dipendenti
+
+I dipendenti **non hanno login** in questa fase: ogni dipendente ha un link personale `/app/[token]` con un token non indovinabile generato server-side. Il login dipendente reale è pianificato per una milestone futura, su richiesta esplicita.
 
 ## Script disponibili
 
-| Comando | Descrizione |
-|---|---|
-| `npm run dev` | Avvia dev server |
-| `npm run build` | Build produzione |
-| `npm run db:push` | Aggiorna DB senza migration |
+| Comando              | Descrizione              |
+| -------------------- | ------------------------ |
+| `npm run dev`        | Avvia dev server         |
+| `npm run build`      | Build produzione         |
+| `npm run lint`       | ESLint                   |
+| `npm run typecheck`  | Type-check TypeScript    |
+| `npm run format`     | Formatta con Prettier    |
 | `npm run db:migrate` | Crea e applica migration |
-| `npm run db:studio` | Apre Prisma Studio |
+| `npm run db:studio`  | Apre Prisma Studio       |
 
 ## Route protette
 
-Il middleware in `middleware.ts` protegge automaticamente `/dashboard/**` e `/admin/**`. Le route `/admin/**` richiedono `role === "ADMIN"`.
+`middleware.ts` protegge `/admin/**`, richiedendo una sessione con `role === "ADMIN"`. `/app/[token]/**` non richiede sessione: l'identità viene risolta dal token nell'URL lato server (a partire dalla Milestone 1).
