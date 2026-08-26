@@ -4,7 +4,7 @@ Piattaforma di gestione turni per un'azienda di pulizie. Vedi [`PROJECT_SPEC.md`
 
 Stack: **Next.js 14 App Router** · **TypeScript** · **Tailwind CSS** · **shadcn/ui** · **NextAuth (Auth.js) v4** · **Prisma** · **PostgreSQL**
 
-Stato: **Milestone 0 — Foundation** completata. Nessuna logica di business è ancora implementata (auth, anagrafiche, pianificazione, assenze, sostituzioni arrivano nelle milestone successive, una per volta e su approvazione).
+Stato: **Milestone 1 — Auth & autorizzazione** completata. Login admin funzionante, route `/admin/**` protette, link personale dipendenti (`/app/[token]`) risolto lato server. Anagrafiche, pianificazione, assenze e sostituzioni arrivano nelle milestone successive, una per volta e su approvazione.
 
 ## Setup
 
@@ -29,7 +29,12 @@ Genera `NEXTAUTH_SECRET` con `openssl rand -base64 32` (va solo in `.env.local`)
 docker compose up -d
 npm run db:migrate     # applica le migration
 npm run db:generate    # rigenera il Prisma Client
+npm run db:seed        # crea azienda demo, utente admin e un dipendente di prova
 ```
+
+Il seed stampa le credenziali admin (default `admin@example.com` / `changeme123`,
+sovrascrivibili con `SEED_ADMIN_EMAIL`/`SEED_ADMIN_PASSWORD`) e il link personale
+del dipendente di prova.
 
 ### 4. Avvia in sviluppo
 
@@ -38,8 +43,6 @@ npm run dev
 ```
 
 Apri [http://localhost:3000](http://localhost:3000)
-
-> Nessun utente admin è ancora seedato: il login non funzionerà finché la Milestone 1 (auth) e il seed script non saranno implementati.
 
 ---
 
@@ -93,4 +96,4 @@ I dipendenti **non hanno login** in questa fase: ogni dipendente ha un link pers
 
 ## Route protette
 
-`middleware.ts` protegge `/admin/**`, richiedendo una sessione con `role === "ADMIN"`. `/app/[token]/**` non richiede sessione: l'identità viene risolta dal token nell'URL lato server (a partire dalla Milestone 1).
+`middleware.ts` protegge `/admin/**`, richiedendo una sessione con `role === "ADMIN"`. `/app/[token]/**` non richiede sessione: l'identità viene risolta dal token nell'URL lato server (`lib/permissions/employee.ts`), con 404 generico se il token non è valido o il dipendente è disattivato.
