@@ -7,7 +7,15 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // DATABASE_URL: pooled connection (e.g. Neon's PgBouncer endpoint) — what
+  // the app uses at runtime, safe under Vercel's serverless concurrency.
+  // DIRECT_URL: unpooled connection, used only for migrate/db push — some
+  // migration operations (advisory locks, prepared statements) don't work
+  // through a pooler. Optional: if unset, Prisma falls back to DATABASE_URL
+  // for both, which is exactly right for the local Docker Postgres (no
+  // pooler involved) used in dev/test.
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ---------------------------------------------------------------------------

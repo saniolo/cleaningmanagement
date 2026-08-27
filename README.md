@@ -4,7 +4,7 @@ Piattaforma di gestione turni per un'azienda di pulizie. Vedi [`PROJECT_SPEC.md`
 
 Stack: **Next.js 14 App Router** · **TypeScript** · **Tailwind CSS** · **shadcn/ui** · **NextAuth (Auth.js) v4** · **Prisma** · **PostgreSQL**
 
-Stato: **Milestone 8 — Hardening** completata. Tutte le funzionalità core dell'MVP sono implementate e verificate: auth admin, CRUD anagrafiche, ricorrenze e generazione attività, pianificazione settimanale con rilevamento conflitti, dashboard dipendente mobile-first, assenze con impatto transazionale, workflow di sostituzione con protezione dalle race condition, dati seed realistici (10 dipendenti, 5 clienti, 7 location, 10 servizi), 28 test automatici sui flussi critici, loading/error state, e un audit di permessi/validazione/transazioni/responsive superato su tutte le action. Resta la milestone di produzione (M9).
+Stato: **Milestone 9 — Produzione** in corso. Tutte le funzionalità core dell'MVP (M0–M8) sono implementate, testate e verificate. Questa sezione copre cosa serve per portare l'app in produzione: la parte codice/documentazione è pronta, il deploy vero e proprio richiede un account Vercel e un database Postgres gestito (Neon o equivalente) — vedi [Deploy in produzione](#deploy-in-produzione).
 
 ## Setup
 
@@ -117,3 +117,102 @@ generazione ricorrenze.
 ## Route protette
 
 `middleware.ts` protegge `/admin/**`, richiedendo una sessione con `role === "ADMIN"`. `/app/[token]/**` non richiede sessione: l'identità viene risolta dal token nell'URL lato server (`lib/permissions/employee.ts`), con 404 generico se il token non è valido o il dipendente è disattivato.
+
+## Deploy in produzione
+
+Target consigliato: **Vercel** (app) + **Neon** o altro Postgres gestito standard (nessuna
+dipendenza proprietaria oltre a questo). Questi passi richiedono un account Vercel e un
+progetto Postgres già creati — non è qualcosa che si automatizza da qui.
+
+### 1. Database di produzione
+
+Crea un progetto Postgres (es. su Neon). Avrai due connection string:
+
+- una **pooled** (via PgBouncer) → va in `DATABASE_URL`, usata dall'app a runtime
+- una **diretta** (non pooled) → va in `DIRECT_URL`, usata solo per le migration
+
+(Su Neon: dashboard → Connection Details → entrambe le varianti sono lì. In locale, dove
+non c'è pooler, le due variabili puntano allo stesso Postgres via Docker.)
+
+### 2. Variabili d'ambiente (da impostare su Vercel)
+
+| Variabile         | Note                                                                                                                        |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`    | Connection string **pooled** del Postgres di produzione                                                                     |
+| `DIRECT_URL`      | Connection string **diretta**, solo per le migration                                                                        |
+| `NEXTAUTH_URL`    | URL pubblico dell'app (es. `https://tuodominio.it`)                                                                         |
+| `NEXTAUTH_SECRET` | **Nuovo** secret, mai lo stesso di dev/test — genera con `openssl rand -base64 32`                                          |
+| `CRON_SECRET`     | Genera con `openssl rand -base64 32`; deve combaciare con quanto Vercel Cron invia (automatico se la variabile è impostata) |
+
+### 3. Migration
+
+Prima del primo deploy (o dopo ogni cambio allo schema), applica le migration al DB di
+produzione **manualmente**, non come parte automatica della build (per un servizio con
+un solo tenant non ha senso rischiare una migration a ogni deploy):
+
+```bash
+DATABASE_URL="<pooled>" DIRECT_URL="<diretta>" npx prisma migrate deploy
+```
+
+### 4. Primo admin (bootstrap, non il seed demo)
+
+**Non usare `npm run db:seed` in produzione** — crea dati fittizi (`Condominio Verdi`,
+`Mario Rossi`, ecc.) pensati solo per lo sviluppo. Per il primo admin reale:
+
+```bash
+BOOTSTRAP_COMPANY_NAME="Nome Azienda Reale" \
+BOOTSTRAP_ADMIN_EMAIL="admin@tuaazienda.it" \
+BOOTSTRAP_ADMIN_PASSWORD="<password forte, min 12 caratteri>" \
+DATABASE_URL="<pooled>" \
+npx tsx prisma/bootstrap-production.ts
+```
+
+Idempotente: se l'email esiste già non fa nulla, quindi rieseguirlo per errore è
+innocuo. Non crea dipendenti/clienti/servizi — quelli si inseriscono dall'app.
+
+### 5. Deploy
+
+Collega il repository a Vercel (o `vercel --prod` da CLI se già autenticato) con le
+variabili del punto 2 impostate. `npm run build` include `prisma generate` come
+`postinstall`, quindi il Prisma Client è sempre rigenerato a ogni build — non serve
+altro nel build command.
+
+`vercel.json` include già il cron giornaliero (03:00) che tiene popolato l'orizzonte di
+pianificazione di 8 settimane (`/api/cron/generate-assignments`, protetto da `CRON_SECRET`).
+
+### 6. Smoke test dopo il deploy
+
+- [ ] `/login` carica e il login con l'admin da bootstrap funziona
+- [ ] `/admin` mostra la dashboard senza errori
+- [ ] Crea un cliente → location → servizio → ricorrenza dall'app
+- [ ] `/admin/settings` → "Genera prossime attività" crea le assegnazioni
+- [ ] `/admin/planning` mostra la griglia settimanale
+- [ ] Crea un dipendente, copia il link personale, apri `/app/[token]` in incognito → dashboard mobile visibile
+- [ ] Un token inventato su `/app/qualcosa-a-caso` → 404 (non deve mai restituire dati)
+- [ ] Richiedi un'assenza da `/app/[token]/absences`, approvala da `/admin/absences`, verifica che l'attività coinvolta torni "da assegnare"
+
+### Backup
+
+Neon (e la maggior parte dei provider Postgres gestiti standard) offre point-in-time
+recovery automatico sui piani a pagamento — verificalo nella dashboard del provider
+scelto. In alternativa, programma un `pg_dump` periodico verso uno storage esterno.
+Nessun meccanismo di backup applicativo è implementato in questa MVP (fuori scope, non
+richiesto esplicitamente).
+
+### Monitoraggio
+
+Nessuno strumento di monitoring dedicato è stato integrato (fuori scope MVP). I log di
+Vercel (Runtime Logs) coprono errori delle Server Action e delle route API; per
+qualcosa di più strutturato (alerting, error tracking) valuta un servizio esterno
+quando l'uso reale lo giustificherà.
+
+---
+
+**FUTURE IMPROVEMENT**
+Descrizione: applicare davvero `User.mustChangePassword` — il campo esiste nello
+schema ma nessun flusso lo controlla (né al login, né altrove); un admin creato via
+bootstrap o seed può continuare a usare la password iniziale indefinitamente.
+Valore di business: riduce il rischio di password deboli/condivise rimaste tali dal
+primo setup.
+Complessità stimata: BASSA — un controllo in più nel login flow + una pagina di cambio
+password.
