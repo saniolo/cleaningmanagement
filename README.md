@@ -4,7 +4,7 @@ Piattaforma di gestione turni per un'azienda di pulizie. Vedi [`PROJECT_SPEC.md`
 
 Stack: **Next.js 14 App Router** · **TypeScript** · **Tailwind CSS** · **shadcn/ui** · **NextAuth (Auth.js) v4** · **Prisma** · **PostgreSQL**
 
-Stato: **Milestone 7 — Sostituzioni** completata. Tutte le funzionalità core dell'MVP sono ora implementate: auth admin, CRUD anagrafiche, ricorrenze e generazione attività, pianificazione settimanale con rilevamento conflitti, dashboard dipendente mobile-first, assenze con impatto transazionale, e il workflow di sostituzione completo (`/admin/unassigned` → proposta → `/app/[token]/replacements` → accetta/rifiuta), con protezione dalle race condition sull'accettazione. Restano le milestone di hardening (M8) e produzione (M9).
+Stato: **Milestone 8 — Hardening** completata. Tutte le funzionalità core dell'MVP sono implementate e verificate: auth admin, CRUD anagrafiche, ricorrenze e generazione attività, pianificazione settimanale con rilevamento conflitti, dashboard dipendente mobile-first, assenze con impatto transazionale, workflow di sostituzione con protezione dalle race condition, dati seed realistici (10 dipendenti, 5 clienti, 7 location, 10 servizi), 28 test automatici sui flussi critici, loading/error state, e un audit di permessi/validazione/transazioni/responsive superato su tutte le action. Resta la milestone di produzione (M9).
 
 ## Setup
 
@@ -82,17 +82,37 @@ Apri [http://localhost:3000](http://localhost:3000)
 
 I dipendenti **non hanno login** in questa fase: ogni dipendente ha un link personale `/app/[token]` con un token non indovinabile generato server-side. Il login dipendente reale è pianificato per una milestone futura, su richiesta esplicita.
 
+## Test automatici
+
+I test (Vitest) girano contro un **database Postgres separato** (`cleaning_management_test`),
+sullo stesso container Docker del DB di sviluppo — non toccano mai i dati di dev/demo.
+
+```bash
+cp .env.example .env.test.local   # poi correggi DATABASE_URL con il nome _test
+npm test                          # crea/migra il DB di test e lancia i test una tantum
+npm run test:watch                # modalità watch
+```
+
+Copre esattamente le priorità di PROJECT_SPEC.md sezione 32: isolamento tra dipendenti
+e tra aziende, rilevamento conflitti, impatto delle assenze approvate, workflow di
+sostituzione (incluso un test di concorrenza reale — due `accept` simultanei sulla
+stessa richiesta, verificando che ne vinca esattamente uno), e idempotenza della
+generazione ricorrenze.
+
 ## Script disponibili
 
-| Comando              | Descrizione              |
-| -------------------- | ------------------------ |
-| `npm run dev`        | Avvia dev server         |
-| `npm run build`      | Build produzione         |
-| `npm run lint`       | ESLint                   |
-| `npm run typecheck`  | Type-check TypeScript    |
-| `npm run format`     | Formatta con Prettier    |
-| `npm run db:migrate` | Crea e applica migration |
-| `npm run db:studio`  | Apre Prisma Studio       |
+| Comando              | Descrizione                  |
+| -------------------- | ---------------------------- |
+| `npm run dev`        | Avvia dev server             |
+| `npm run build`      | Build produzione             |
+| `npm run lint`       | ESLint                       |
+| `npm run typecheck`  | Type-check TypeScript        |
+| `npm run format`     | Formatta con Prettier        |
+| `npm test`           | Esegue i test automatici     |
+| `npm run test:watch` | Test in modalità watch       |
+| `npm run db:migrate` | Crea e applica migration     |
+| `npm run db:seed`    | Popola il DB con i dati demo |
+| `npm run db:studio`  | Apre Prisma Studio           |
 
 ## Route protette
 

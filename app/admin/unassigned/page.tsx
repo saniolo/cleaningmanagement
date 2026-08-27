@@ -59,7 +59,7 @@ export default async function UnassignedPage() {
       {cards.length === 0 ? (
         <EmptyState title="Nessuna attività da riassegnare." />
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {cards.map(({ assignment: a, pendingReplacement, eligibleEmployees }) => {
             const date = dateValueToDateString(a.date);
             const startTime = timeValueToTimeString(a.startTime);
@@ -81,15 +81,15 @@ export default async function UnassignedPage() {
                 />
 
                 {pendingReplacement ? (
-                  <div className="flex items-center justify-between gap-2 rounded-md bg-muted p-2 text-xs">
-                    <span>
+                  <div className="space-y-2 rounded-md bg-muted p-2 text-xs">
+                    <p>
                       Proposta a {pendingReplacement.proposedEmployee.firstName}{" "}
                       {pendingReplacement.proposedEmployee.lastName}, in attesa di risposta.
-                    </span>
+                    </p>
                     <CancelReplacementButton id={pendingReplacement.id} />
                   </div>
                 ) : (
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2">
                     <EditAssignmentForm
                       employees={employeeOptions}
                       assignment={{ id: a.id, date, startTime, endTime, employeeId: undefined }}
@@ -97,7 +97,7 @@ export default async function UnassignedPage() {
                       locationName={a.service.location.name}
                       customerName={a.service.location.customer.name}
                       trigger={
-                        <Button size="sm" variant="outline">
+                        <Button size="sm" variant="outline" className="w-full">
                           Assegna direttamente
                         </Button>
                       }
@@ -105,7 +105,11 @@ export default async function UnassignedPage() {
                     <ProposeReplacementForm
                       assignmentId={a.id}
                       eligibleEmployees={eligibleEmployees}
-                      trigger={<Button size="sm">Proponi sostituzione</Button>}
+                      trigger={
+                        <Button size="sm" className="w-full">
+                          Proponi sostituzione
+                        </Button>
+                      }
                     />
                   </div>
                 )}

@@ -14,7 +14,11 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "test:db:create": "docker exec cleaningmanagement-db-1 psql -U cleaning -d cleaning_management -c \"CREATE DATABASE cleaning_management_test\" || true",
+    "pretest": "npm run test:db:create --silent && dotenv -e .env.test.local -- prisma migrate deploy",
+    "test": "dotenv -e .env.test.local -- vitest run",
+    "test:watch": "dotenv -e .env.test.local -- vitest"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -57,6 +61,8 @@
     "eslint-config-next": "14.2.35",
     "eslint-config-prettier": "^9.1.0",
     "prettier": "^3.3.3",
-    "tsx": "^4.19.1"
+    "tsx": "^4.19.1",
+    "vitest": "^2.1.4",
+    "dotenv-cli": "^7.4.2"
   }
 }
