@@ -4,7 +4,7 @@ Piattaforma di gestione turni per un'azienda di pulizie. Vedi [`PROJECT_SPEC.md`
 
 Stack: **Next.js 14 App Router** · **TypeScript** · **Tailwind CSS** · **shadcn/ui** · **NextAuth (Auth.js) v4** · **Prisma** · **PostgreSQL**
 
-Stato: **Milestone 6 — Assenze** completata. Login admin, route protette, CRUD Dipendenti/Clienti/Location/Servizi, ricorrenze e generazione attività, pianificazione settimanale admin con rilevamento conflitti, dashboard dipendente mobile-first, e il flusso assenze completo: richiesta dipendente (`/app/[token]/absences`) → coda di approvazione admin (`/admin/absences`) → impatto transazionale sulle attività già assegnate (tornano "da assegnare", mai eliminate). Sostituzioni arrivano nella milestone successiva, su approvazione.
+Stato: **Milestone 7 — Sostituzioni** completata. Tutte le funzionalità core dell'MVP sono ora implementate: auth admin, CRUD anagrafiche, ricorrenze e generazione attività, pianificazione settimanale con rilevamento conflitti, dashboard dipendente mobile-first, assenze con impatto transazionale, e il workflow di sostituzione completo (`/admin/unassigned` → proposta → `/app/[token]/replacements` → accetta/rifiuta), con protezione dalle race condition sull'accettazione. Restano le milestone di hardening (M8) e produzione (M9).
 
 ## Setup
 

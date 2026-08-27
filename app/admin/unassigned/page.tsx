@@ -2,11 +2,15 @@ import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/db";
 import { getCurrentAdmin } from "@/lib/auth/session";
+import { getEligibleEmployees } from "@/lib/scheduling/eligibility";
 import { dateValueToDateString, formatLongDateIT, timeValueToTimeString } from "@/lib/dates";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { AssignmentCard } from "@/components/planning/assignment-card";
+import { Button } from "@/components/ui/button";
 import { EditAssignmentForm } from "@/app/admin/planning/edit-assignment-form";
+import { ProposeReplacementForm } from "./propose-replacement-form";
+import { CancelReplacementButton } from "./cancel-replacement-button";
 
 export default async function UnassignedPage() {
   const admin = await getCurrentAdmin();
@@ -30,6 +34,21 @@ export default async function UnassignedPage() {
     lastName: e.lastName,
   }));
 
+  const cards = await Promise.all(
+    assignments.map(async (a) => {
+      const pendingReplacement = await prisma.replacementRequest.findFirst({
+        where: { assignmentId: a.id, status: "PENDING" },
+        include: { proposedEmployee: true },
+      });
+
+      const eligibleEmployees = pendingReplacement
+        ? []
+        : await getEligibleEmployees(admin.companyId, a.date, a.startTime, a.endTime);
+
+      return { assignment: a, pendingReplacement, eligibleEmployees };
+    })
+  );
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -37,39 +56,60 @@ export default async function UnassignedPage() {
         description="Attività scoperte che richiedono un dipendente, in ordine di data."
       />
 
-      {assignments.length === 0 ? (
+      {cards.length === 0 ? (
         <EmptyState title="Nessuna attività da riassegnare." />
       ) : (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {assignments.map((a) => {
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {cards.map(({ assignment: a, pendingReplacement, eligibleEmployees }) => {
             const date = dateValueToDateString(a.date);
             const startTime = timeValueToTimeString(a.startTime);
             const endTime = timeValueToTimeString(a.endTime);
 
             return (
-              <EditAssignmentForm
-                key={a.id}
-                employees={employeeOptions}
-                assignment={{ id: a.id, date, startTime, endTime, employeeId: undefined }}
-                serviceName={a.service.name}
-                locationName={a.service.location.name}
-                customerName={a.service.location.customer.name}
-                trigger={
-                  <button type="button" className="block w-full text-left">
-                    <div className="mb-1 text-xs font-medium text-muted-foreground">
-                      {formatLongDateIT(a.date)}
-                    </div>
-                    <AssignmentCard
-                      startTime={startTime}
-                      endTime={endTime}
-                      customerName={a.service.location.customer.name}
-                      locationName={a.service.location.name}
+              <div key={a.id} className="space-y-2 rounded-lg border p-2">
+                <div className="text-xs font-medium text-muted-foreground">
+                  {formatLongDateIT(a.date)}
+                </div>
+                <AssignmentCard
+                  startTime={startTime}
+                  endTime={endTime}
+                  customerName={a.service.location.customer.name}
+                  locationName={a.service.location.name}
+                  serviceName={a.service.name}
+                  unassigned
+                  className="border-none p-0 shadow-none hover:bg-transparent"
+                />
+
+                {pendingReplacement ? (
+                  <div className="flex items-center justify-between gap-2 rounded-md bg-muted p-2 text-xs">
+                    <span>
+                      Proposta a {pendingReplacement.proposedEmployee.firstName}{" "}
+                      {pendingReplacement.proposedEmployee.lastName}, in attesa di risposta.
+                    </span>
+                    <CancelReplacementButton id={pendingReplacement.id} />
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <EditAssignmentForm
+                      employees={employeeOptions}
+                      assignment={{ id: a.id, date, startTime, endTime, employeeId: undefined }}
                       serviceName={a.service.name}
-                      unassigned
+                      locationName={a.service.location.name}
+                      customerName={a.service.location.customer.name}
+                      trigger={
+                        <Button size="sm" variant="outline">
+                          Assegna direttamente
+                        </Button>
+                      }
                     />
-                  </button>
-                }
-              />
+                    <ProposeReplacementForm
+                      assignmentId={a.id}
+                      eligibleEmployees={eligibleEmployees}
+                      trigger={<Button size="sm">Proponi sostituzione</Button>}
+                    />
+                  </div>
+                )}
+              </div>
             );
           })}
         </div>
