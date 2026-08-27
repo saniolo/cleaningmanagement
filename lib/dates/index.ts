@@ -105,3 +105,13 @@ export function formatShortDateIT(value: Date): string {
 export function formatLongDateIT(value: Date): string {
   return `${value.getUTCDate()} ${MONTH_LABELS_IT[value.getUTCMonth()]} ${value.getUTCFullYear()}`;
 }
+
+// Collapses a single-day range ("27 agosto 2026 – 27 agosto 2026") down to
+// one date, since that duplication reads as a mistake rather than a
+// one-day absence.
+export function formatDateRangeIT(start: Date, end: Date): string {
+  if (dateValueToDateString(start) === dateValueToDateString(end)) {
+    return formatLongDateIT(start);
+  }
+  return `${formatLongDateIT(start)} – ${formatLongDateIT(end)}`;
+}
