@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 
 import { prisma } from "@/lib/db";
 import { resolveEmployeeByToken } from "@/lib/permissions/employee";
-import { hasSchedulingConflict } from "@/lib/scheduling/conflicts";
 import type { ActionResult } from "@/types/actions";
 
 const PERMISSION_ERROR = "Non hai i permessi necessari per eseguire questa operazione.";
@@ -12,13 +11,12 @@ const STALE_ERROR = "La richiesta di sostituzione non è più disponibile.";
 const TAKEN_ERROR = "Questa attività è già stata assegnata.";
 
 // PROJECT_SPEC.md section 19: accepting a replacement must re-verify, right
-// before writing, that (1) the request is still PENDING, (2) the assignment
-// is still UNASSIGNED, and (3) no conflicting assignment has appeared for
-// this employee since the proposal was made — then flip both records
-// atomically. Two employees can never both end up assigned to the same
-// activity: the conditional updateMany()s below only affect a row if it's
-// still in the expected state, so if two accepts race, the second one's
-// update matches 0 rows and fails cleanly instead of overwriting the first.
+// before writing, that (1) the request is still PENDING and (2) the
+// assignment is still UNASSIGNED — then flip both records atomically. Two
+// employees can never both end up assigned to the same activity: the
+// conditional updateMany()s below only affect a row if it's still in the
+// expected state, so if two accepts race, the second one's update matches 0
+// rows and fails cleanly instead of overwriting the first.
 export async function acceptReplacementRequest(
   token: string,
   replacementRequestId: string
@@ -34,16 +32,6 @@ export async function acceptReplacementRequest(
   if (replacement.status !== "PENDING") return { success: false, error: STALE_ERROR };
   if (replacement.assignment.status !== "UNASSIGNED" || replacement.assignment.employeeId) {
     return { success: false, error: TAKEN_ERROR };
-  }
-
-  const conflict = await hasSchedulingConflict(
-    employee.id,
-    replacement.assignment.date,
-    replacement.assignment.startTime,
-    replacement.assignment.endTime
-  );
-  if (conflict) {
-    return { success: false, error: "Il dipendente non è disponibile in questo orario." };
   }
 
   try {
@@ -72,6 +60,10 @@ export async function acceptReplacementRequest(
 
   revalidatePath(`/app/${token}/replacements`);
   revalidatePath(`/app/${token}`);
+  // The pending-count badge in the nav lives in the layout, which client-side
+  // navigation won't otherwise re-fetch — revalidate it explicitly so it
+  // drops immediately instead of staying stale until the next full load.
+  revalidatePath("/app/[token]", "layout");
   revalidatePath("/admin/unassigned");
   revalidatePath("/admin/planning");
   return { success: true, data: undefined };
@@ -93,6 +85,7 @@ export async function rejectReplacementRequest(
   if (updated.count === 0) return { success: false, error: STALE_ERROR };
 
   revalidatePath(`/app/${token}/replacements`);
+  revalidatePath("/app/[token]", "layout");
   revalidatePath("/admin/unassigned");
   return { success: true, data: undefined };
 }

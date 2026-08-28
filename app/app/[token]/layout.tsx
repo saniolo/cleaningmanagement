@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 
+import { prisma } from "@/lib/db";
 import { resolveEmployeeByToken } from "@/lib/permissions/employee";
 import { EmployeeNav } from "@/components/employee/employee-nav";
 
@@ -23,10 +24,14 @@ export default async function EmployeeLayout({
     notFound();
   }
 
+  const pendingReplacementsCount = await prisma.replacementRequest.count({
+    where: { proposedEmployeeId: employee.id, status: "PENDING" },
+  });
+
   return (
     <div className="min-h-screen pb-16">
       <main className="mx-auto max-w-md p-4">{children}</main>
-      <EmployeeNav token={params.token} />
+      <EmployeeNav token={params.token} pendingReplacementsCount={pendingReplacementsCount} />
     </div>
   );
 }

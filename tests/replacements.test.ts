@@ -5,6 +5,8 @@ vi.mock("next-auth", () => ({ getServerSession: vi.fn() }));
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/db";
 import { proposeReplacement } from "@/app/admin/unassigned/actions";
+import { updateAssignment } from "@/app/admin/planning/actions";
+import { dateValueToDateString } from "@/lib/dates";
 import {
   acceptReplacementRequest,
   rejectReplacementRequest,
@@ -31,8 +33,6 @@ async function setupPendingReplacement(date = "2031-05-05") {
     companyId: company.id,
     serviceId: service.id,
     date,
-    startTime: "08:00",
-    endTime: "10:00",
   });
 
   const proposeResult = await proposeReplacement(assignment.id, employee.id);
@@ -173,5 +173,78 @@ describe("rejectReplacementRequest", () => {
 
     const proposeResult = await proposeReplacement(assignment.id, nextEmployee.id);
     expect(proposeResult.success).toBe(true);
+  });
+});
+
+// Reproduces the real scenario reported after Milestone 9: an admin directly
+// assigned an employee to an activity that already had a pending proposal
+// (to that same employee, or a different one) sitting on it. Without this,
+// the proposal stayed PENDING forever — visible and actionable on the
+// employee's dashboard — even though the activity was no longer theirs to
+// accept or reject.
+describe("directly assigning an activity with a pending proposal", () => {
+  it("cancels the pending replacement request instead of leaving it dangling", async () => {
+    const { company, employee, assignment, replacement } =
+      await setupPendingReplacement("2031-05-12");
+    const directHire = await createTestEmployee(company.id, "DirectHire");
+
+    const result = await updateAssignment(assignment.id, {
+      date: dateValueToDateString(assignment.date),
+      durationMinutes: assignment.durationMinutes,
+      employeeId: directHire.id,
+    });
+    expect(result.success).toBe(true);
+
+    const refreshedRequest = await prisma.replacementRequest.findUniqueOrThrow({
+      where: { id: replacement.id },
+    });
+    expect(refreshedRequest.status).toBe("CANCELLED");
+
+    // The originally-proposed employee can no longer act on it.
+    const acceptAttempt = await acceptReplacementRequest(employee.accessToken, replacement.id);
+    expect(acceptAttempt.success).toBe(false);
+
+    const refreshedAssignment = await prisma.assignment.findUniqueOrThrow({
+      where: { id: assignment.id },
+    });
+    expect(refreshedAssignment.employeeId).toBe(directHire.id);
+  });
+
+  it("leaves a pending request on a different assignment untouched", async () => {
+    const company = await createTestCompany();
+    mockAdminSession(company.id);
+    const { service } = await createTestServiceChain(company.id);
+    const targetA = await createTestEmployee(company.id, "TargetA");
+    const targetB = await createTestEmployee(company.id, "TargetB");
+    const directHire = await createTestEmployee(company.id, "DirectHire2");
+
+    const assignmentA = await createTestAssignment({
+      companyId: company.id,
+      serviceId: service.id,
+      date: "2031-05-13",
+    });
+    const assignmentB = await createTestAssignment({
+      companyId: company.id,
+      serviceId: service.id,
+      date: "2031-05-14",
+    });
+
+    await proposeReplacement(assignmentA.id, targetA.id);
+    const proposeB = await proposeReplacement(assignmentB.id, targetB.id);
+    expect(proposeB.success).toBe(true);
+    const replacementB = await prisma.replacementRequest.findFirstOrThrow({
+      where: { assignmentId: assignmentB.id, status: "PENDING" },
+    });
+
+    await updateAssignment(assignmentA.id, {
+      date: dateValueToDateString(assignmentA.date),
+      durationMinutes: assignmentA.durationMinutes,
+      employeeId: directHire.id,
+    });
+
+    const refreshedB = await prisma.replacementRequest.findUniqueOrThrow({
+      where: { id: replacementB.id },
+    });
+    expect(refreshedB.status).toBe("PENDING");
   });
 });

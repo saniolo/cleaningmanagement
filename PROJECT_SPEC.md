@@ -31,7 +31,6 @@ The owner/manager currently needs to coordinate:
 
 - employees;
 - customers;
-- customer locations;
 - recurring cleaning activities;
 - weekly schedules;
 - absences;
@@ -41,7 +40,7 @@ The platform must provide a centralized operational view.
 
 The fundamental workflow is:
 
-CUSTOMERS / LOCATIONS
+CUSTOMERS
 ↓
 SERVICES
 ↓
@@ -75,7 +74,6 @@ Can:
 
 - manage employees;
 - manage customers;
-- manage locations;
 - manage services;
 - configure recurring activities;
 - view the weekly schedule;
@@ -97,7 +95,7 @@ Can:
 - see only their own relevant information;
 - view their weekly schedule;
 - view assignment details;
-- view location/address;
+- view customer address;
 - view operational notes;
 - submit absence requests;
 - see the status of absence requests;
@@ -223,9 +221,13 @@ Centralize timezone handling.
 
 5. DOMAIN MODEL
 
-Do NOT collapse customer, location, service and assignment into a single entity.
-
-They represent different business concepts.
+Customer and location were originally modeled as two separate entities. In
+practice a customer almost always maps 1:1 to a single site, and the extra
+level added friction (an extra required step, an extra route level,
+"customer · location" shown everywhere) without real payoff. They have been
+merged into a single Customer entity that carries the address directly — see
+section 6. Service and Assignment remain separate from Customer: they
+represent different business concepts (what gets done, and when/by whom).
 
 Use approximately the following domain model.
 
@@ -297,11 +299,14 @@ Do NOT implement salary information.
 
 ⸻
 
-6. CUSTOMERS AND LOCATIONS
+6. CUSTOMERS
 
 Customer
 
-Represents the contractual customer.
+Represents both the contractual customer and the single site being cleaned
+(the former separate Location entity has been merged into Customer — see
+section 5). A business with more than one site is represented as multiple
+Customer rows, one per site.
 
 Example:
 
@@ -313,23 +318,6 @@ Fields:
 
 id
 companyId
-name
-notes
-active
-createdAt
-updatedAt
-
-⸻
-
-Location
-
-A customer may have one or multiple locations.
-
-Fields:
-
-id
-companyId
-customerId
 name
 addressLine
 city
@@ -348,14 +336,12 @@ Latitude/longitude are not required unless needed later.
 
 7. SERVICES
 
-A service represents a cleaning activity performed at a location.
+A service represents a cleaning activity performed for a customer.
 
 Example:
 
 Customer:
 Condominio Verdi
-Location:
-Via Roma 15
 Service:
 Pulizia scale
 
@@ -363,7 +349,7 @@ Suggested fields:
 
 id
 companyId
-locationId
+customerId
 name
 description
 estimatedDurationMinutes
@@ -377,7 +363,7 @@ Example:
 Pulizia scale
 120 minutes
 
-A location may contain multiple services.
+A customer may have multiple services.
 
 Example:
 
@@ -402,24 +388,25 @@ A recurring schedule should define:
 
 service
 dayOfWeek
-startTime
 estimatedDuration
 effectiveFrom
 effectiveUntil (optional)
 active
+
+No specific time of day is tracked — only which day the activity happens on
+and how long it takes. The manager only needs to know who does what, on
+which day, and for how long, not at which hour.
 
 Example:
 
 Service:
 Pulizia scale
 Monday
-08:00
 120 minutes
 
 Another schedule can exist for the same service:
 
 Thursday
-08:00
 120 minutes
 
 For MVP, support weekly recurrence.
@@ -437,9 +424,9 @@ An Assignment represents an actual scheduled activity on a specific date.
 Example:
 
 10 September 2026
-08:00–10:00
 Condominio Verdi
 Pulizia scale
+120 minuti
 Mario Rossi
 
 Suggested fields:
@@ -449,8 +436,7 @@ companyId
 serviceId
 employeeId nullable
 date
-startTime
-endTime
+durationMinutes
 status
 sourceRecurringScheduleId nullable
 createdAt
@@ -540,7 +526,7 @@ Giuseppe Job B Job A Job C Job D Job B
 Each assignment card should show at least:
 
 time
-customer/location
+customer
 service
 employee
 
@@ -559,21 +545,15 @@ The manager must be able to:
 - assign an employee;
 - change employee;
 - change date;
-- change start/end time;
+- change duration;
 - remove an employee;
 - see assignment details.
 
-Before assigning an employee, detect obvious time overlaps.
-
-If employee A already has:
-
-08:00–10:00
-
-and the manager tries to assign:
-
-09:00–11:00
-
-show a conflict warning.
+There is no specific time of day to detect an overlap on, so assigning an
+employee is never blocked by what else they have that day. Instead, when
+choosing an employee (direct assignment or replacement proposal), show how
+many activities and minutes they already have assigned that date, so the
+manager can judge workload by eye.
 
 For MVP, do NOT implement complex travel-time calculations.
 
@@ -614,21 +594,18 @@ with daily sections.
 Example:
 
 LUNEDÌ 7 SETTEMBRE
-08:00 – 10:00
 Condominio Verdi
 Via Roma 15
-Pulizia scale
-11:00 – 13:00
+Pulizia scale · 120 minuti
 Studio Rossi
 Via Carducci 8
-Pulizia uffici
+Pulizia uffici · 90 minuti
 
 Assignment detail must show:
 
 - date;
-- start/end time;
+- duration;
 - customer;
-- location;
 - address;
 - service;
 - operational notes.
@@ -810,9 +787,9 @@ Example:
 
 Nuova attività
 Giovedì 10 settembre
-08:00–10:00
 Condominio Verdi
 Via Roma 15
+120 minuti
 [ RIFIUTA ] [ ACCETTA ]
 
 After response, clearly show the result.
@@ -830,8 +807,12 @@ Display eligible active employees.
 For MVP, “eligible” means primarily:
 
 - active employee;
-- not absent;
-- no obvious time overlap.
+- not absent.
+
+There is no time of day to detect an overlap on, so eligibility is never
+narrowed by what else the employee has that day — instead, each eligible
+employee is shown with how many activities and minutes they already have
+assigned that date, so the manager can judge workload by eye.
 
 Do NOT implement intelligent employee ranking.
 
@@ -986,7 +967,6 @@ Avoid displaying raw exceptions.
 
 Examples:
 
-Il dipendente non è disponibile in questo orario.
 Questa attività è già stata assegnata.
 La richiesta di sostituzione non è più disponibile.
 Non hai i permessi necessari per eseguire questa operazione.
@@ -1002,8 +982,7 @@ Example:
 1 company
 1 admin
 10 employees
-5 customers
-7 locations
+7 customers
 10 services
 multiple recurring schedules
 2 absence requests
@@ -1162,7 +1141,7 @@ Although roadmap features are excluded, avoid architectural decisions that make 
 
 For example:
 
-- preserve clear Service/Location separation;
+- preserve clear Service/Customer separation;
 - keep assignments as first-class records;
 - maintain timestamps;
 - keep employee/user separation;
@@ -1289,7 +1268,6 @@ Deliver:
 
 - Employee CRUD;
 - Customer CRUD;
-- Location CRUD;
 - Service CRUD;
 - active/inactive management;
 - validation;
@@ -1413,7 +1391,6 @@ Manager logs in.
 Manager creates:
 
 Customer
-→ Location
 → Service
 → recurring schedule
 

@@ -9,10 +9,8 @@ import {
 
 interface EmployeeAssignmentCardProps {
   dateLabel: string;
-  startTime: string;
-  endTime: string;
+  durationMinutes: number;
   customerName: string;
-  locationName: string;
   address: string;
   serviceName: string;
   operationalNotes?: string;
@@ -20,15 +18,13 @@ interface EmployeeAssignmentCardProps {
 
 // Read-only — employees can only view their own assignments (never trust or
 // expose anything editable here). Only the fields PROJECT_SPEC.md section 14
-// lists are shown: date, start/end time, customer, location, address,
-// service, operational notes. No internal/administrative fields (status,
-// ids, recurrence source, etc.).
+// lists are shown: date, duration, customer, address, service, operational
+// notes. No internal/administrative fields (status, ids, recurrence source,
+// etc.).
 export function EmployeeAssignmentCard({
   dateLabel,
-  startTime,
-  endTime,
+  durationMinutes,
   customerName,
-  locationName,
   address,
   serviceName,
   operationalNotes,
@@ -40,12 +36,8 @@ export function EmployeeAssignmentCard({
           type="button"
           className="w-full rounded-lg border p-3 text-left shadow-sm transition-colors active:bg-accent"
         >
-          <div className="text-sm font-semibold">
-            {startTime} – {endTime}
-          </div>
-          <div className="text-sm text-muted-foreground">
-            {customerName} · {locationName}
-          </div>
+          <div className="text-sm font-semibold">{durationMinutes} min</div>
+          <div className="text-sm text-muted-foreground">{customerName}</div>
           <div className="text-sm font-medium">{serviceName}</div>
         </button>
       </DialogTrigger>
@@ -57,10 +49,8 @@ export function EmployeeAssignmentCard({
 
         <div className="space-y-3 text-sm">
           <div>
-            <div className="font-medium text-muted-foreground">Orario</div>
-            <div>
-              {startTime} – {endTime}
-            </div>
+            <div className="font-medium text-muted-foreground">Durata</div>
+            <div>{durationMinutes} min</div>
           </div>
           <div>
             <div className="font-medium text-muted-foreground">Cliente</div>
@@ -68,7 +58,6 @@ export function EmployeeAssignmentCard({
           </div>
           <div>
             <div className="font-medium text-muted-foreground">Indirizzo</div>
-            <div>{locationName}</div>
             <div>{address}</div>
           </div>
           {operationalNotes && (

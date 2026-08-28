@@ -18,6 +18,37 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+// navigator.clipboard requires a secure context (HTTPS or localhost), so it's
+// unavailable when the admin opens the app over plain HTTP via a LAN IP
+// (needed to hand out employee links testable from a phone). Fall back to
+// the older execCommand path, which still works over plain HTTP.
+async function copyToClipboard(text: string): Promise<boolean> {
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // fall through to the legacy path below
+    }
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  let success = false;
+  try {
+    success = document.execCommand("copy");
+  } catch {
+    success = false;
+  }
+  document.body.removeChild(textarea);
+  return success;
+}
+
 export function EmployeesTable({ employees }: { employees: Employee[] }) {
   return (
     <Table>
@@ -45,14 +76,9 @@ function EmployeeRow({ employee }: { employee: Employee }) {
 
   async function handleCopyLink() {
     const url = `${window.location.origin}/app/${employee.accessToken}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopyFailed(false);
-      setCopied(true);
-    } catch {
-      setCopied(false);
-      setCopyFailed(true);
-    }
+    const success = await copyToClipboard(url);
+    setCopied(success);
+    setCopyFailed(!success);
     setTimeout(() => {
       setCopied(false);
       setCopyFailed(false);

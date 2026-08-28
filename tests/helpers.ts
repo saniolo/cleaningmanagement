@@ -2,7 +2,7 @@ import bcrypt from "bcryptjs";
 
 import { prisma } from "@/lib/db";
 import { generateEmployeeAccessToken } from "@/lib/auth/employee-token";
-import { dateStringToDateValue, timeStringToTimeValue } from "@/lib/dates";
+import { dateStringToDateValue } from "@/lib/dates";
 
 // Every test creates its own Company and only touches data scoped to it, so
 // test files can run in any order (or in parallel) against the same test
@@ -43,13 +43,9 @@ export async function createTestEmployee(
 
 export async function createTestServiceChain(companyId: string) {
   const customer = await prisma.customer.create({
-    data: { companyId, name: unique("Test Customer") },
-  });
-  const location = await prisma.location.create({
     data: {
       companyId,
-      customerId: customer.id,
-      name: unique("Test Location"),
+      name: unique("Test Customer"),
       addressLine: "Via Test 1",
       city: "Roma",
       postalCode: "00100",
@@ -59,20 +55,19 @@ export async function createTestServiceChain(companyId: string) {
   const service = await prisma.service.create({
     data: {
       companyId,
-      locationId: location.id,
+      customerId: customer.id,
       name: unique("Test Service"),
       estimatedDurationMinutes: 60,
     },
   });
-  return { customer, location, service };
+  return { customer, service };
 }
 
 export async function createTestAssignment(params: {
   companyId: string;
   serviceId: string;
   date: string;
-  startTime: string;
-  endTime: string;
+  durationMinutes?: number;
   employeeId?: string;
   sourceRecurringScheduleId?: string;
 }) {
@@ -81,8 +76,7 @@ export async function createTestAssignment(params: {
       companyId: params.companyId,
       serviceId: params.serviceId,
       date: dateStringToDateValue(params.date),
-      startTime: timeStringToTimeValue(params.startTime),
-      endTime: timeStringToTimeValue(params.endTime),
+      durationMinutes: params.durationMinutes ?? 60,
       employeeId: params.employeeId ?? null,
       status: params.employeeId ? "ASSIGNED" : "UNASSIGNED",
       sourceRecurringScheduleId: params.sourceRecurringScheduleId ?? null,

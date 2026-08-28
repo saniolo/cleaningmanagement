@@ -3,41 +3,32 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentAdmin } from "@/lib/auth/session";
 import {
-  DAY_OF_WEEK_SHORT_LABELS_IT,
   addDaysToDateValue,
   dateStringToDateValue,
   dateValueToDateString,
   formatLongDateIT,
-  formatShortDateIT,
   getMondayOfWeek,
   startOfUtcDay,
-  timeValueToTimeString,
 } from "@/lib/dates";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { AssignmentCard } from "@/components/planning/assignment-card";
 import { WeekNavigation } from "@/components/planning/week-navigation";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { CreateAssignmentForm, type ServiceOption } from "./create-assignment-form";
 import { EditAssignmentForm } from "./edit-assignment-form";
+import { CloneWeekButton } from "./clone-week-button";
+import { PlanningGrid, type EmployeeWeek } from "./planning-grid";
 
 interface AssignmentDisplay {
   id: string;
   date: string;
-  startTime: string;
-  endTime: string;
+  durationMinutes: number;
   serviceName: string;
-  locationName: string;
+  address: string;
   customerName: string;
   employeeId?: string;
+  proposedEmployeeName?: string;
 }
 
 export default async function PlanningPage({ searchParams }: { searchParams: { week?: string } }) {
@@ -51,7 +42,7 @@ export default async function PlanningPage({ searchParams }: { searchParams: { w
   const weekDates = Array.from({ length: 7 }, (_, i) => addDaysToDateValue(weekStart, i));
   const weekEnd = weekDates[6];
 
-  const [employees, assignments, services] = await Promise.all([
+  const [employees, assignments, services, pendingReplacements] = await Promise.all([
     prisma.employee.findMany({
       where: { companyId: admin.companyId, active: true },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
@@ -59,21 +50,36 @@ export default async function PlanningPage({ searchParams }: { searchParams: { w
     prisma.assignment.findMany({
       where: { companyId: admin.companyId, date: { gte: weekStart, lte: weekEnd } },
       include: {
-        service: { include: { location: { include: { customer: true } } } },
+        service: { include: { customer: true } },
         employee: true,
       },
-      orderBy: { startTime: "asc" },
+      orderBy: { service: { name: "asc" } },
     }),
     prisma.service.findMany({
       where: {
         companyId: admin.companyId,
         active: true,
-        location: { active: true, customer: { active: true } },
+        customer: { active: true },
       },
-      include: { location: { include: { customer: true } } },
+      include: { customer: true },
       orderBy: { name: "asc" },
     }),
+    prisma.replacementRequest.findMany({
+      where: {
+        companyId: admin.companyId,
+        status: "PENDING",
+        assignment: { date: { gte: weekStart, lte: weekEnd } },
+      },
+      include: { proposedEmployee: true },
+    }),
   ]);
+
+  const proposedEmployeeNameByAssignmentId = new Map(
+    pendingReplacements.map((r) => [
+      r.assignmentId,
+      `${r.proposedEmployee.firstName} ${r.proposedEmployee.lastName}`,
+    ])
+  );
 
   const employeeOptions = employees.map((e) => ({
     id: e.id,
@@ -83,22 +89,23 @@ export default async function PlanningPage({ searchParams }: { searchParams: { w
 
   const serviceOptions: ServiceOption[] = services.map((s) => ({
     id: s.id,
-    label: `${s.location.customer.name} · ${s.location.name} · ${s.name}`,
+    label: `${s.customer.name} · ${s.name}`,
+    estimatedDurationMinutes: s.estimatedDurationMinutes,
   }));
 
-  const byEmployeeAndDate = new Map<string, Map<string, AssignmentDisplay[]>>();
+  const byEmployeeId = new Map<string, Record<string, AssignmentDisplay[]>>();
   const unassigned: AssignmentDisplay[] = [];
 
   for (const a of assignments) {
     const display: AssignmentDisplay = {
       id: a.id,
       date: dateValueToDateString(a.date),
-      startTime: timeValueToTimeString(a.startTime),
-      endTime: timeValueToTimeString(a.endTime),
+      durationMinutes: a.durationMinutes,
       serviceName: a.service.name,
-      locationName: a.service.location.name,
-      customerName: a.service.location.customer.name,
+      address: a.service.customer.addressLine,
+      customerName: a.service.customer.name,
       employeeId: a.employeeId ?? undefined,
+      proposedEmployeeName: proposedEmployeeNameByAssignmentId.get(a.id),
     };
 
     if (!display.employeeId) {
@@ -106,13 +113,21 @@ export default async function PlanningPage({ searchParams }: { searchParams: { w
       continue;
     }
 
-    if (!byEmployeeAndDate.has(display.employeeId)) {
-      byEmployeeAndDate.set(display.employeeId, new Map());
+    if (!byEmployeeId.has(display.employeeId)) {
+      byEmployeeId.set(display.employeeId, {});
     }
-    const byDate = byEmployeeAndDate.get(display.employeeId)!;
-    if (!byDate.has(display.date)) byDate.set(display.date, []);
-    byDate.get(display.date)!.push(display);
+    const byDate = byEmployeeId.get(display.employeeId)!;
+    if (!byDate[display.date]) byDate[display.date] = [];
+    byDate[display.date].push(display);
   }
+
+  const weekDateStrings = weekDates.map(dateValueToDateString);
+  const employeeWeeks: EmployeeWeek[] = employees.map((e) => ({
+    id: e.id,
+    firstName: e.firstName,
+    lastName: e.lastName,
+    byDate: byEmployeeId.get(e.id) ?? {},
+  }));
 
   return (
     <div className="space-y-8">
@@ -122,6 +137,7 @@ export default async function PlanningPage({ searchParams }: { searchParams: { w
         actions={
           <div className="flex items-center gap-2">
             <WeekNavigation weekStart={weekStart} basePath="/admin/planning" />
+            <CloneWeekButton weekStart={dateValueToDateString(weekStart)} />
             <CreateAssignmentForm
               services={serviceOptions}
               employees={employeeOptions}
@@ -138,67 +154,11 @@ export default async function PlanningPage({ searchParams }: { searchParams: { w
           description="Aggiungi dipendenti da Dipendenti per iniziare a pianificare."
         />
       ) : (
-        <div className="rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="sticky left-0 w-40 bg-background">Dipendente</TableHead>
-                {weekDates.map((d) => (
-                  <TableHead key={dateValueToDateString(d)} className="min-w-[170px]">
-                    {DAY_OF_WEEK_SHORT_LABELS_IT[d.getUTCDay()]} {formatShortDateIT(d)}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {employees.map((employee) => {
-                const byDate = byEmployeeAndDate.get(employee.id);
-                return (
-                  <TableRow key={employee.id}>
-                    <TableCell className="sticky left-0 bg-background align-top font-medium">
-                      {employee.firstName} {employee.lastName}
-                    </TableCell>
-                    {weekDates.map((d) => {
-                      const dateStr = dateValueToDateString(d);
-                      const dayAssignments = byDate?.get(dateStr) ?? [];
-                      return (
-                        <TableCell key={dateStr} className="space-y-1 align-top">
-                          {dayAssignments.map((a) => (
-                            <EditAssignmentForm
-                              key={a.id}
-                              employees={employeeOptions}
-                              assignment={{
-                                id: a.id,
-                                date: a.date,
-                                startTime: a.startTime,
-                                endTime: a.endTime,
-                                employeeId: a.employeeId,
-                              }}
-                              serviceName={a.serviceName}
-                              locationName={a.locationName}
-                              customerName={a.customerName}
-                              trigger={
-                                <button type="button" className="block w-full text-left">
-                                  <AssignmentCard
-                                    startTime={a.startTime}
-                                    endTime={a.endTime}
-                                    customerName={a.customerName}
-                                    locationName={a.locationName}
-                                    serviceName={a.serviceName}
-                                  />
-                                </button>
-                              }
-                            />
-                          ))}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+        <PlanningGrid
+          employees={employeeWeeks}
+          weekDates={weekDateStrings}
+          employeeOptions={employeeOptions}
+        />
       )}
 
       <div className="space-y-3">
@@ -214,22 +174,21 @@ export default async function PlanningPage({ searchParams }: { searchParams: { w
                 assignment={{
                   id: a.id,
                   date: a.date,
-                  startTime: a.startTime,
-                  endTime: a.endTime,
+                  durationMinutes: a.durationMinutes,
                   employeeId: a.employeeId,
                 }}
                 serviceName={a.serviceName}
-                locationName={a.locationName}
+                address={a.address}
                 customerName={a.customerName}
                 trigger={
                   <button type="button" className="block w-full text-left">
                     <AssignmentCard
-                      startTime={a.startTime}
-                      endTime={a.endTime}
+                      durationMinutes={a.durationMinutes}
                       customerName={a.customerName}
-                      locationName={a.locationName}
+                      address={a.address}
                       serviceName={a.serviceName}
                       unassigned
+                      proposedEmployeeName={a.proposedEmployeeName}
                     />
                   </button>
                 }

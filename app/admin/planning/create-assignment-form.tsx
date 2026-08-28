@@ -36,7 +36,10 @@ import {
 export interface ServiceOption {
   id: string;
   label: string;
+  estimatedDurationMinutes: number;
 }
+
+const DEFAULT_DURATION_MINUTES = 60;
 
 interface CreateAssignmentFormProps {
   trigger: React.ReactNode;
@@ -61,8 +64,7 @@ export function CreateAssignmentForm({
     defaultValues: {
       serviceId: "",
       date: defaultDate ?? "",
-      startTime: "08:00",
-      endTime: "10:00",
+      durationMinutes: DEFAULT_DURATION_MINUTES,
       employeeId: defaultEmployeeId,
     },
   });
@@ -93,8 +95,7 @@ export function CreateAssignmentForm({
       form.reset({
         serviceId: "",
         date: defaultDate ?? "",
-        startTime: "08:00",
-        endTime: "10:00",
+        durationMinutes: DEFAULT_DURATION_MINUTES,
         employeeId: defaultEmployeeId,
       });
       setServerError(null);
@@ -117,7 +118,18 @@ export function CreateAssignmentForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Servizio</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
+                  <Select
+                    value={field.value}
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      // Pre-fill the duration from the picked service — the
+                      // admin can still override it below.
+                      const matching = services.find((s) => s.id === value);
+                      if (matching) {
+                        form.setValue("durationMinutes", matching.estimatedDurationMinutes);
+                      }
+                    }}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Seleziona un servizio" />
@@ -150,34 +162,19 @@ export function CreateAssignmentForm({
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="startTime"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Ora inizio</FormLabel>
-                    <FormControl>
-                      <Input type="time" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="endTime"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Ora fine</FormLabel>
-                    <FormControl>
-                      <Input type="time" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="durationMinutes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Durata (minuti)</FormLabel>
+                  <FormControl>
+                    <Input type="number" min={1} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}

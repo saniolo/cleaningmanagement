@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 
 import { prisma } from "@/lib/db";
 import { resolveEmployeeByToken } from "@/lib/permissions/employee";
-import { formatLongDateIT, timeValueToTimeString } from "@/lib/dates";
+import { formatLongDateIT } from "@/lib/dates";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { AssignmentCard } from "@/components/planning/assignment-card";
@@ -23,7 +23,7 @@ export default async function EmployeeReplacementsPage({ params }: { params: { t
     where: { proposedEmployeeId: employee.id },
     include: {
       assignment: {
-        include: { service: { include: { location: { include: { customer: true } } } } },
+        include: { service: { include: { customer: true } } },
       },
     },
     orderBy: { createdAt: "desc" },
@@ -46,10 +46,9 @@ export default async function EmployeeReplacementsPage({ params }: { params: { t
                 {formatLongDateIT(r.assignment.date)}
               </div>
               <AssignmentCard
-                startTime={timeValueToTimeString(r.assignment.startTime)}
-                endTime={timeValueToTimeString(r.assignment.endTime)}
-                customerName={r.assignment.service.location.customer.name}
-                locationName={r.assignment.service.location.name}
+                durationMinutes={r.assignment.durationMinutes}
+                customerName={r.assignment.service.customer.name}
+                address={r.assignment.service.customer.addressLine}
                 serviceName={r.assignment.service.name}
                 className="border-none p-0 shadow-none hover:bg-transparent"
               />

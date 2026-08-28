@@ -1,22 +1,15 @@
 // Realistic dev seed dataset per PROJECT_SPEC.md section 31: 1 company,
-// 1 admin, 10 employees, 5 customers, 7 locations, 10 services, multiple
-// recurring schedules, 2 absence requests, several weekly assignments,
-// 2 unassigned activities, 2 pending replacement requests — enough to
-// exercise every MVP workflow immediately after a fresh `prisma migrate
-// reset` without any manual data entry.
+// 1 admin, 10 employees, 7 customers, 10 services, multiple recurring
+// schedules, 2 absence requests, several weekly assignments, 2 unassigned
+// activities, 2 pending replacement requests — enough to exercise every
+// MVP workflow immediately after a fresh `prisma migrate reset` without
+// any manual data entry.
 import { PrismaClient, Role, AbsenceType, AbsenceStatus, type Employee } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { randomBytes } from "crypto";
 
 import { generateAssignmentsForWindow } from "../lib/scheduling/generate";
-import { hasSchedulingConflict } from "../lib/scheduling/conflicts";
-import {
-  addDaysToDateValue,
-  dateStringToDateValue,
-  getMondayOfWeek,
-  startOfUtcDay,
-  timeStringToTimeValue,
-} from "../lib/dates";
+import { addDaysToDateValue, dateStringToDateValue, getMondayOfWeek, startOfUtcDay } from "../lib/dates";
 
 const prisma = new PrismaClient();
 
@@ -43,160 +36,130 @@ const EMPLOYEE_NAMES = [
 
 interface CustomerSeed {
   name: string;
-  locations: {
-    name: string;
-    addressLine: string;
-    city: string;
-    postalCode: string;
-    province: string;
-    services: { name: string; estimatedDurationMinutes: number; operationalNotes?: string }[];
-  }[];
+  addressLine: string;
+  city: string;
+  postalCode: string;
+  province: string;
+  services: { name: string; estimatedDurationMinutes: number; operationalNotes?: string }[];
 }
 
+// Customer now represents both the contractual customer and its single
+// address (merged from what used to be separate Customer/Location models).
+// A business with multiple sites — "Hotel Europa" had a dependance,
+// "Condominio Bellavista" has two stairwells — is represented as multiple
+// customer entries here, one per site, exactly as the production
+// Customer/Location merge migration split existing multi-location
+// customers into separate rows.
 const CUSTOMERS: CustomerSeed[] = [
   {
     name: "Condominio Verdi",
-    locations: [
+    addressLine: "Via Roma 15",
+    city: "Roma",
+    postalCode: "00100",
+    province: "RM",
+    services: [
       {
-        name: "Via Roma 15",
-        addressLine: "Via Roma 15",
-        city: "Roma",
-        postalCode: "00100",
-        province: "RM",
-        services: [
-          {
-            name: "Pulizia scale",
-            estimatedDurationMinutes: 120,
-            operationalNotes: "Chiavi dal portiere, citofono int. 1.",
-          },
-        ],
+        name: "Pulizia scale",
+        estimatedDurationMinutes: 120,
+        operationalNotes: "Chiavi dal portiere, citofono int. 1.",
       },
     ],
   },
   {
     name: "Studio Rossi",
-    locations: [
-      {
-        name: "Via Carducci 8",
-        addressLine: "Via Carducci 8",
-        city: "Roma",
-        postalCode: "00185",
-        province: "RM",
-        services: [
-          { name: "Pulizia uffici", estimatedDurationMinutes: 90 },
-          { name: "Pulizia vetri", estimatedDurationMinutes: 45 },
-        ],
-      },
+    addressLine: "Via Carducci 8",
+    city: "Roma",
+    postalCode: "00185",
+    province: "RM",
+    services: [
+      { name: "Pulizia uffici", estimatedDurationMinutes: 90 },
+      { name: "Pulizia vetri", estimatedDurationMinutes: 45 },
     ],
   },
   {
-    name: "Hotel Europa",
-    locations: [
+    name: "Hotel Europa - Via Milano 22",
+    addressLine: "Via Milano 22",
+    city: "Milano",
+    postalCode: "20121",
+    province: "MI",
+    services: [
       {
-        name: "Via Milano 22",
-        addressLine: "Via Milano 22",
-        city: "Milano",
-        postalCode: "20121",
-        province: "MI",
-        services: [
-          {
-            name: "Pulizia camere",
-            estimatedDurationMinutes: 180,
-            operationalNotes: "Passare in reception per le chiavi master.",
-          },
-          { name: "Pulizia hall", estimatedDurationMinutes: 60 },
-          { name: "Pulizia vetri", estimatedDurationMinutes: 90 },
-        ],
+        name: "Pulizia camere",
+        estimatedDurationMinutes: 180,
+        operationalNotes: "Passare in reception per le chiavi master.",
       },
-      {
-        name: "Via Milano 24 (dependance)",
-        addressLine: "Via Milano 24",
-        city: "Milano",
-        postalCode: "20121",
-        province: "MI",
-        services: [{ name: "Pulizia camere", estimatedDurationMinutes: 120 }],
-      },
+      { name: "Pulizia hall", estimatedDurationMinutes: 60 },
+      { name: "Pulizia vetri", estimatedDurationMinutes: 90 },
     ],
   },
   {
-    name: "Condominio Bellavista",
-    locations: [
-      {
-        name: "Via Torino 5 - Scala A",
-        addressLine: "Via Torino 5",
-        city: "Torino",
-        postalCode: "10121",
-        province: "TO",
-        services: [{ name: "Pulizia scale", estimatedDurationMinutes: 90 }],
-      },
-      {
-        name: "Via Torino 5 - Scala B",
-        addressLine: "Via Torino 5",
-        city: "Torino",
-        postalCode: "10121",
-        province: "TO",
-        services: [{ name: "Pulizia scale", estimatedDurationMinutes: 90 }],
-      },
-    ],
+    name: "Hotel Europa - Via Milano 24 (dependance)",
+    addressLine: "Via Milano 24",
+    city: "Milano",
+    postalCode: "20121",
+    province: "MI",
+    services: [{ name: "Pulizia camere", estimatedDurationMinutes: 120 }],
+  },
+  {
+    name: "Condominio Bellavista - Via Torino 5 - Scala A",
+    addressLine: "Via Torino 5",
+    city: "Torino",
+    postalCode: "10121",
+    province: "TO",
+    services: [{ name: "Pulizia scale", estimatedDurationMinutes: 90 }],
+  },
+  {
+    name: "Condominio Bellavista - Via Torino 5 - Scala B",
+    addressLine: "Via Torino 5",
+    city: "Torino",
+    postalCode: "10121",
+    province: "TO",
+    services: [{ name: "Pulizia scale", estimatedDurationMinutes: 90 }],
   },
   {
     name: "Ufficio Legale Marchetti",
-    locations: [
+    addressLine: "Corso Italia 100",
+    city: "Roma",
+    postalCode: "00198",
+    province: "RM",
+    services: [
       {
-        name: "Corso Italia 100",
-        addressLine: "Corso Italia 100",
-        city: "Roma",
-        postalCode: "00198",
-        province: "RM",
-        services: [
-          {
-            name: "Pulizia uffici",
-            estimatedDurationMinutes: 60,
-            operationalNotes: "Solo dopo le 19:00, ufficio aperto fino a tardi.",
-          },
-        ],
+        name: "Pulizia uffici",
+        estimatedDurationMinutes: 60,
+        operationalNotes: "Solo dopo le 19:00, ufficio aperto fino a tardi.",
       },
     ],
   },
 ];
 
-// [locationIndex, serviceIndex within that location, dayOfWeek (0=Sun..6=Sat), "HH:mm"]
 // Not every service gets a recurrence — some are one-off/ad-hoc, matching
-// realistic usage. Indexes below refer to the flattened service list built
-// while seeding (see serviceRefs).
+// realistic usage. Matched against the flattened service list built while
+// seeding (see serviceRefs) by customerName + serviceName.
 const RECURRENCES: {
-  locationName: string;
+  customerName: string;
   serviceName: string;
   dayOfWeek: number;
-  time: string;
 }[] = [
-  { locationName: "Via Roma 15", serviceName: "Pulizia scale", dayOfWeek: 1, time: "08:00" },
-  { locationName: "Via Roma 15", serviceName: "Pulizia scale", dayOfWeek: 4, time: "08:00" },
-  { locationName: "Via Carducci 8", serviceName: "Pulizia uffici", dayOfWeek: 2, time: "07:00" },
-  { locationName: "Via Carducci 8", serviceName: "Pulizia uffici", dayOfWeek: 5, time: "07:00" },
-  { locationName: "Via Milano 22", serviceName: "Pulizia camere", dayOfWeek: 1, time: "09:00" },
-  { locationName: "Via Milano 22", serviceName: "Pulizia camere", dayOfWeek: 3, time: "09:00" },
-  { locationName: "Via Milano 22", serviceName: "Pulizia camere", dayOfWeek: 5, time: "09:00" },
-  { locationName: "Via Milano 22", serviceName: "Pulizia hall", dayOfWeek: 1, time: "07:30" },
-  { locationName: "Via Milano 22", serviceName: "Pulizia hall", dayOfWeek: 4, time: "07:30" },
+  { customerName: "Condominio Verdi", serviceName: "Pulizia scale", dayOfWeek: 1 },
+  { customerName: "Condominio Verdi", serviceName: "Pulizia scale", dayOfWeek: 4 },
+  { customerName: "Studio Rossi", serviceName: "Pulizia uffici", dayOfWeek: 2 },
+  { customerName: "Studio Rossi", serviceName: "Pulizia uffici", dayOfWeek: 5 },
+  { customerName: "Hotel Europa - Via Milano 22", serviceName: "Pulizia camere", dayOfWeek: 1 },
+  { customerName: "Hotel Europa - Via Milano 22", serviceName: "Pulizia camere", dayOfWeek: 3 },
+  { customerName: "Hotel Europa - Via Milano 22", serviceName: "Pulizia camere", dayOfWeek: 5 },
+  { customerName: "Hotel Europa - Via Milano 22", serviceName: "Pulizia hall", dayOfWeek: 1 },
+  { customerName: "Hotel Europa - Via Milano 22", serviceName: "Pulizia hall", dayOfWeek: 4 },
   {
-    locationName: "Via Torino 5 - Scala A",
+    customerName: "Condominio Bellavista - Via Torino 5 - Scala A",
     serviceName: "Pulizia scale",
     dayOfWeek: 3,
-    time: "08:00",
   },
   {
-    locationName: "Via Torino 5 - Scala B",
+    customerName: "Condominio Bellavista - Via Torino 5 - Scala B",
     serviceName: "Pulizia scale",
     dayOfWeek: 3,
-    time: "09:30",
   },
-  {
-    locationName: "Corso Italia 100",
-    serviceName: "Pulizia uffici",
-    dayOfWeek: 5,
-    time: "19:00",
-  },
+  { customerName: "Ufficio Legale Marchetti", serviceName: "Pulizia uffici", dayOfWeek: 5 },
 ];
 
 async function main() {
@@ -240,43 +203,36 @@ async function main() {
     employees.push(employee);
   }
 
-  // --- Customers -> Locations -> Services ---
-  const serviceRefs: { locationName: string; serviceName: string; id: string }[] = [];
+  // --- Customers -> Services ---
+  const serviceRefs: { customerName: string; serviceName: string; id: string }[] = [];
 
   for (const customerSeed of CUSTOMERS) {
     const customer = await prisma.customer.create({
-      data: { companyId: company.id, name: customerSeed.name },
+      data: {
+        companyId: company.id,
+        name: customerSeed.name,
+        addressLine: customerSeed.addressLine,
+        city: customerSeed.city,
+        postalCode: customerSeed.postalCode,
+        province: customerSeed.province,
+      },
     });
 
-    for (const locationSeed of customerSeed.locations) {
-      const location = await prisma.location.create({
+    for (const serviceSeed of customerSeed.services) {
+      const service = await prisma.service.create({
         data: {
           companyId: company.id,
           customerId: customer.id,
-          name: locationSeed.name,
-          addressLine: locationSeed.addressLine,
-          city: locationSeed.city,
-          postalCode: locationSeed.postalCode,
-          province: locationSeed.province,
+          name: serviceSeed.name,
+          estimatedDurationMinutes: serviceSeed.estimatedDurationMinutes,
+          operationalNotes: serviceSeed.operationalNotes,
         },
       });
-
-      for (const serviceSeed of locationSeed.services) {
-        const service = await prisma.service.create({
-          data: {
-            companyId: company.id,
-            locationId: location.id,
-            name: serviceSeed.name,
-            estimatedDurationMinutes: serviceSeed.estimatedDurationMinutes,
-            operationalNotes: serviceSeed.operationalNotes,
-          },
-        });
-        serviceRefs.push({
-          locationName: location.name,
-          serviceName: service.name,
-          id: service.id,
-        });
-      }
+      serviceRefs.push({
+        customerName: customer.name,
+        serviceName: service.name,
+        id: service.id,
+      });
     }
   }
 
@@ -284,7 +240,7 @@ async function main() {
   const today = startOfUtcDay(new Date());
   for (const recurrence of RECURRENCES) {
     const service = serviceRefs.find(
-      (s) => s.locationName === recurrence.locationName && s.serviceName === recurrence.serviceName
+      (s) => s.customerName === recurrence.customerName && s.serviceName === recurrence.serviceName
     );
     if (!service) continue;
 
@@ -296,7 +252,6 @@ async function main() {
         companyId: company.id,
         serviceId: service.id,
         dayOfWeek: recurrence.dayOfWeek,
-        startTime: timeStringToTimeValue(recurrence.time),
         estimatedDurationMinutes: matching.estimatedDurationMinutes,
         effectiveFrom: today,
       },
@@ -318,7 +273,7 @@ async function main() {
 
   const stagingPool = await prisma.assignment.findMany({
     where: { companyId: company.id, date: { gte: today, lte: stagingWindowEnd } },
-    orderBy: [{ date: "asc" }, { startTime: "asc" }],
+    orderBy: [{ date: "asc" }, { serviceId: "asc" }],
   });
 
   const UNCOVERED_COUNT = 4;
@@ -327,27 +282,10 @@ async function main() {
 
   let employeeCursor = 0;
   for (const assignment of toStaff) {
-    // Round-robin through employees, skipping anyone already double-booked
-    // for this exact slot (keeps the seed data internally consistent with
-    // the app's own conflict rule).
-    let attempts = 0;
-    let chosen = null;
-    while (attempts < employees.length) {
-      const candidate = employees[employeeCursor % employees.length];
-      employeeCursor++;
-      attempts++;
-      const conflict = await hasSchedulingConflict(
-        candidate.id,
-        assignment.date,
-        assignment.startTime,
-        assignment.endTime
-      );
-      if (!conflict) {
-        chosen = candidate;
-        break;
-      }
-    }
-    if (!chosen) continue;
+    // Round-robin through employees — no more time-overlap check to skip
+    // on, an employee can have any number of activities on the same day.
+    const chosen = employees[employeeCursor % employees.length];
+    employeeCursor++;
 
     await prisma.assignment.update({
       where: { id: assignment.id },

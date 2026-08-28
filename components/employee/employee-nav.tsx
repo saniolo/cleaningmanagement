@@ -13,7 +13,13 @@ const NAV_ITEMS = [
   { segment: "profile", label: "Profilo", icon: User },
 ];
 
-export function EmployeeNav({ token }: { token: string }) {
+export function EmployeeNav({
+  token,
+  pendingReplacementsCount = 0,
+}: {
+  token: string;
+  pendingReplacementsCount?: number;
+}) {
   const pathname = usePathname();
   const base = `/app/${token}`;
 
@@ -23,6 +29,7 @@ export function EmployeeNav({ token }: { token: string }) {
         {NAV_ITEMS.map(({ segment, label, icon: Icon }) => {
           const href = segment ? `${base}/${segment}` : base;
           const isActive = pathname === href;
+          const badgeCount = segment === "replacements" ? pendingReplacementsCount : 0;
 
           return (
             <li key={href} className="flex-1">
@@ -33,7 +40,14 @@ export function EmployeeNav({ token }: { token: string }) {
                   isActive ? "text-foreground" : "text-muted-foreground"
                 )}
               >
-                <Icon className="h-5 w-5" />
+                <span className="relative">
+                  <Icon className="h-5 w-5" />
+                  {badgeCount > 0 && (
+                    <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold leading-none text-destructive-foreground">
+                      {badgeCount > 9 ? "9+" : badgeCount}
+                    </span>
+                  )}
+                </span>
                 {label}
               </Link>
             </li>

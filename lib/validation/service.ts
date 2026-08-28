@@ -19,3 +19,19 @@ export const serviceSchema = z.object({
 });
 
 export type ServiceInput = z.infer<typeof serviceSchema>;
+
+// Optional weekly cadence set up at the same time a service is created —
+// "Pulizia scale ogni lunedì, mercoledì e venerdì" in one step instead of
+// creating the service, then opening it and adding three separate
+// ricorrenze by hand. Purely a bulk-creation convenience: each selected day
+// becomes its own independent RecurringSchedule row (same as if added one
+// at a time from the service's own page), so afterwards each day is
+// managed individually there — this form never touches days after
+// creation, only at the moment the service is first set up. No time of day
+// is tracked — only which days it happens on; duration comes from the
+// service's own estimatedDurationMinutes.
+export const serviceScheduleSchema = z.object({
+  daysOfWeek: z.array(z.number().int().min(0).max(6)).default([]),
+});
+
+export type ServiceScheduleInput = z.infer<typeof serviceScheduleSchema>;

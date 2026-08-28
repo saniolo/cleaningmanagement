@@ -77,8 +77,7 @@ describe("company scoping on admin mutations", () => {
     const result = await createAssignment({
       serviceId: serviceB.id,
       date: "2031-06-01",
-      startTime: "08:00",
-      endTime: "10:00",
+      durationMinutes: 60,
     });
 
     expect(result.success).toBe(false);

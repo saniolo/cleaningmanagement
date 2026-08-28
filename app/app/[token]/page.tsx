@@ -9,7 +9,6 @@ import {
   dateValueToDateString,
   getMondayOfWeek,
   startOfUtcDay,
-  timeValueToTimeString,
 } from "@/lib/dates";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -25,8 +24,8 @@ export default async function EmployeeWeekPage({ params }: { params: { token: st
 
   const assignments = await prisma.assignment.findMany({
     where: { employeeId: employee.id, date: { gte: weekStart, lte: weekEnd } },
-    include: { service: { include: { location: { include: { customer: true } } } } },
-    orderBy: [{ date: "asc" }, { startTime: "asc" }],
+    include: { service: { include: { customer: true } } },
+    orderBy: [{ date: "asc" }, { service: { name: "asc" } }],
   });
 
   const byDate = new Map<string, typeof assignments>();
@@ -60,11 +59,9 @@ export default async function EmployeeWeekPage({ params }: { params: { token: st
                   <EmployeeAssignmentCard
                     key={a.id}
                     dateLabel={dateLabel}
-                    startTime={timeValueToTimeString(a.startTime)}
-                    endTime={timeValueToTimeString(a.endTime)}
-                    customerName={a.service.location.customer.name}
-                    locationName={a.service.location.name}
-                    address={`${a.service.location.addressLine}, ${a.service.location.postalCode} ${a.service.location.city} (${a.service.location.province})`}
+                    durationMinutes={a.durationMinutes}
+                    customerName={a.service.customer.name}
+                    address={`${a.service.customer.addressLine}, ${a.service.customer.postalCode} ${a.service.customer.city} (${a.service.customer.province})`}
                     serviceName={a.service.name}
                     operationalNotes={a.service.operationalNotes ?? undefined}
                   />

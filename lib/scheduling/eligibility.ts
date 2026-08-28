@@ -1,22 +1,30 @@
 import { prisma } from "@/lib/db";
-import { hasSchedulingConflict } from "@/lib/scheduling/conflicts";
+
+export interface EligibleEmployee {
+  id: string;
+  firstName: string;
+  lastName: string;
+  assignedCount: number;
+  assignedMinutes: number;
+}
 
 // "Eligible" for a replacement proposal per PROJECT_SPEC.md section 22:
-// active employee; not absent (no APPROVED absence covering the date); no
-// obvious time overlap. No ranking, no AI, no geographic optimization —
-// just this filter, in whatever order Prisma returns employees.
+// active employee, not absent (no APPROVED absence covering the date).
+// Scheduling no longer tracks a specific time of day, so there's no overlap
+// check to run — instead each eligible employee comes back with their
+// existing workload for that date (how many activities, how many minutes)
+// so the manager can judge availability by eye rather than have the system
+// silently block or allow.
 export async function getEligibleEmployees(
   companyId: string,
-  date: Date,
-  startTime: Date,
-  endTime: Date
-) {
+  date: Date
+): Promise<EligibleEmployee[]> {
   const employees = await prisma.employee.findMany({
     where: { companyId, active: true },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
 
-  const eligible = [];
+  const eligible: EligibleEmployee[] = [];
   for (const employee of employees) {
     const absent = await prisma.absenceRequest.findFirst({
       where: {
@@ -29,10 +37,18 @@ export async function getEligibleEmployees(
     });
     if (absent) continue;
 
-    const conflict = await hasSchedulingConflict(employee.id, date, startTime, endTime);
-    if (conflict) continue;
+    const dayAssignments = await prisma.assignment.findMany({
+      where: { employeeId: employee.id, date, status: "ASSIGNED" },
+      select: { durationMinutes: true },
+    });
 
-    eligible.push(employee);
+    eligible.push({
+      id: employee.id,
+      firstName: employee.firstName,
+      lastName: employee.lastName,
+      assignedCount: dayAssignments.length,
+      assignedMinutes: dayAssignments.reduce((sum, a) => sum + a.durationMinutes, 0),
+    });
   }
 
   return eligible;

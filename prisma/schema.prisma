@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
   // DATABASE_URL: pooled connection (e.g. Neon's PgBouncer endpoint) — what
   // the app uses at runtime, safe under Vercel's serverless concurrency.
   // DIRECT_URL: unpooled connection, used only for migrate/db push — some
@@ -29,11 +29,33 @@ model Company {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  users     User[]
-  employees Employee[]
-  customers Customer[]
+  users             User[]
+  employees         Employee[]
+  customers         Customer[]
+  activityTemplates ActivityTemplate[]
 
   @@map("companies")
+}
+
+// A reusable catalog entry ("Pulizia scale", "Mastelli"...) offered as a
+// quick pick when setting up a new customer, so the admin doesn't retype
+// the same common service name and duration for every new location. Picking
+// one just copies its name/duration onto a new Service at creation time —
+// there's no ongoing link, so editing or removing a template later never
+// touches services already created from it.
+model ActivityTemplate {
+  id                       String   @id @default(cuid())
+  companyId                String
+  name                     String
+  estimatedDurationMinutes Int
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@unique([companyId, name])
+  @@index([companyId])
+  @@map("activity_templates")
 }
 
 enum Role {
@@ -81,11 +103,11 @@ model Employee {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  company              Company               @relation(fields: [companyId], references: [id])
-  user                 User?                 @relation(fields: [userId], references: [id])
-  assignments          Assignment[]
-  absenceRequests      AbsenceRequest[]
-  replacementRequests  ReplacementRequest[]
+  company             Company              @relation(fields: [companyId], references: [id])
+  user                User?                @relation(fields: [userId], references: [id])
+  assignments         Assignment[]
+  absenceRequests     AbsenceRequest[]
+  replacementRequests ReplacementRequest[]
 
   @@index([companyId, active])
   @@map("employees")
@@ -95,26 +117,15 @@ model Employee {
 // Customers, locations, services
 // ---------------------------------------------------------------------------
 
+// Represents both the contractual customer and the single physical
+// address/site being cleaned — merged from what used to be two separate
+// models (Customer + Location) since in practice a "location" was almost
+// always a 1:1 stand-in for the customer relationship. A business with
+// multiple sites (e.g. a condominium with several stairwells) is
+// represented as multiple Customer records, one per site.
 model Customer {
-  id        String   @id @default(cuid())
-  companyId String
-  name      String
-  notes     String?
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  company   Company    @relation(fields: [companyId], references: [id])
-  locations Location[]
-
-  @@index([companyId, active])
-  @@map("customers")
-}
-
-model Location {
   id          String   @id @default(cuid())
   companyId   String
-  customerId  String
   name        String
   addressLine String
   city        String
@@ -125,18 +136,17 @@ model Location {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  customer Customer  @relation(fields: [customerId], references: [id])
+  company  Company   @relation(fields: [companyId], references: [id])
   services Service[]
 
   @@index([companyId, active])
-  @@index([customerId])
-  @@map("locations")
+  @@map("customers")
 }
 
 model Service {
   id                       String   @id @default(cuid())
   companyId                String
-  locationId               String
+  customerId               String
   name                     String
   description              String?
   estimatedDurationMinutes Int
@@ -145,12 +155,12 @@ model Service {
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt
 
-  location           Location            @relation(fields: [locationId], references: [id])
+  customer           Customer            @relation(fields: [customerId], references: [id])
   recurringSchedules RecurringSchedule[]
   assignments        Assignment[]
 
   @@index([companyId, active])
-  @@index([locationId])
+  @@index([customerId])
   @@map("services")
 }
 
@@ -166,7 +176,6 @@ model RecurringSchedule {
   companyId                String
   serviceId                String
   dayOfWeek                Int // 0 = Sunday .. 6 = Saturday
-  startTime                DateTime  @db.Time
   estimatedDurationMinutes Int
   effectiveFrom            DateTime  @db.Date
   effectiveUntil           DateTime? @db.Date
@@ -194,25 +203,24 @@ model Assignment {
   companyId                 String
   serviceId                 String
   employeeId                String?
-  date                       DateTime         @db.Date
-  startTime                  DateTime         @db.Time
-  endTime                    DateTime         @db.Time
-  status                     AssignmentStatus @default(UNASSIGNED)
-  sourceRecurringScheduleId  String?
-  createdAt                  DateTime         @default(now())
-  updatedAt                  DateTime         @updatedAt
+  date                      DateTime         @db.Date
+  durationMinutes           Int
+  status                    AssignmentStatus @default(UNASSIGNED)
+  sourceRecurringScheduleId String?
+  createdAt                 DateTime         @default(now())
+  updatedAt                 DateTime         @updatedAt
 
   service             Service              @relation(fields: [serviceId], references: [id])
   employee            Employee?            @relation(fields: [employeeId], references: [id])
-  sourceSchedule       RecurringSchedule?  @relation(fields: [sourceRecurringScheduleId], references: [id])
-  replacementRequests  ReplacementRequest[]
+  sourceSchedule      RecurringSchedule?   @relation(fields: [sourceRecurringScheduleId], references: [id])
+  replacementRequests ReplacementRequest[]
 
-  @@index([companyId, date])
-  @@index([employeeId, date])
   // Postgres treats NULLs as distinct, so this only enforces idempotent
   // generation among assignments created from a recurring schedule; manually
   // created assignments (sourceRecurringScheduleId = null) are unaffected.
   @@unique([sourceRecurringScheduleId, date])
+  @@index([companyId, date])
+  @@index([employeeId, date])
   @@map("assignments")
 }
 

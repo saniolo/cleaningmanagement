@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 
 import { prisma } from "@/lib/db";
 import { generateAssignmentsForWindow } from "@/lib/scheduling/generate";
-import { addDaysToDateValue, startOfUtcDay, timeStringToTimeValue } from "@/lib/dates";
+import { addDaysToDateValue, startOfUtcDay } from "@/lib/dates";
 import { createTestCompany, createTestServiceChain } from "./helpers";
 
 // PROJECT_SPEC.md section 32: "Assignment generation is idempotent. No
@@ -18,7 +18,6 @@ describe("generateAssignmentsForWindow", () => {
         companyId: company.id,
         serviceId: service.id,
         dayOfWeek: today.getUTCDay(),
-        startTime: timeStringToTimeValue("08:00"),
         estimatedDurationMinutes: 60,
         effectiveFrom: today,
       },
@@ -45,7 +44,6 @@ describe("generateAssignmentsForWindow", () => {
         companyId: company.id,
         serviceId: service.id,
         dayOfWeek: today.getUTCDay(),
-        startTime: timeStringToTimeValue("08:00"),
         estimatedDurationMinutes: 60,
         effectiveFrom: addDaysToDateValue(today, -30),
         effectiveUntil: addDaysToDateValue(today, -1),
@@ -66,7 +64,6 @@ describe("generateAssignmentsForWindow", () => {
         companyId: company.id,
         serviceId: service.id,
         dayOfWeek: today.getUTCDay(),
-        startTime: timeStringToTimeValue("08:00"),
         estimatedDurationMinutes: 60,
         effectiveFrom: today,
         active: false,
@@ -88,7 +85,6 @@ describe("generateAssignmentsForWindow", () => {
         companyId: companyB.id,
         serviceId: service.id,
         dayOfWeek: today.getUTCDay(),
-        startTime: timeStringToTimeValue("08:00"),
         estimatedDurationMinutes: 60,
         effectiveFrom: today,
       },

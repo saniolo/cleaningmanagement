@@ -33,16 +33,12 @@ describe("approveAbsenceRequest", () => {
       companyId: company.id,
       serviceId: service.id,
       date: "2031-04-04",
-      startTime: "08:00",
-      endTime: "10:00",
       employeeId: employee.id,
     });
     const outOfRange = await createTestAssignment({
       companyId: company.id,
       serviceId: service.id,
       date: "2031-04-10",
-      startTime: "08:00",
-      endTime: "10:00",
       employeeId: employee.id,
     });
 
@@ -87,8 +83,6 @@ describe("approveAbsenceRequest", () => {
       companyId: company.id,
       serviceId: service.id,
       date: "2031-04-04",
-      startTime: "08:00",
-      endTime: "10:00",
       employeeId: employee.id,
     });
 
@@ -170,8 +164,6 @@ describe("rejectAbsenceRequest", () => {
       companyId: company.id,
       serviceId: service.id,
       date: "2031-04-04",
-      startTime: "08:00",
-      endTime: "10:00",
       employeeId: employee.id,
     });
 

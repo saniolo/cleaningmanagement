@@ -33,12 +33,11 @@ interface EditAssignmentFormProps {
   assignment: {
     id: string;
     date: string;
-    startTime: string;
-    endTime: string;
+    durationMinutes: number;
     employeeId?: string;
   };
   serviceName: string;
-  locationName: string;
+  address: string;
   customerName: string;
 }
 
@@ -47,7 +46,7 @@ export function EditAssignmentForm({
   employees,
   assignment,
   serviceName,
-  locationName,
+  address,
   customerName,
 }: EditAssignmentFormProps) {
   const [open, setOpen] = useState(false);
@@ -57,8 +56,7 @@ export function EditAssignmentForm({
     resolver: zodResolver(assignmentSchema),
     defaultValues: {
       date: assignment.date,
-      startTime: assignment.startTime,
-      endTime: assignment.endTime,
+      durationMinutes: assignment.durationMinutes,
       employeeId: assignment.employeeId,
     },
   });
@@ -84,8 +82,7 @@ export function EditAssignmentForm({
           // re-sync in case the row's data changed since this dialog last opened
           form.reset({
             date: assignment.date,
-            startTime: assignment.startTime,
-            endTime: assignment.endTime,
+            durationMinutes: assignment.durationMinutes,
             employeeId: assignment.employeeId,
           });
           setServerError(null);
@@ -97,7 +94,7 @@ export function EditAssignmentForm({
         <DialogHeader>
           <DialogTitle>{serviceName}</DialogTitle>
           <DialogDescription>
-            {customerName} · {locationName}
+            {customerName} · {address}
           </DialogDescription>
         </DialogHeader>
 
@@ -117,34 +114,19 @@ export function EditAssignmentForm({
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="startTime"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Ora inizio</FormLabel>
-                    <FormControl>
-                      <Input type="time" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="endTime"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Ora fine</FormLabel>
-                    <FormControl>
-                      <Input type="time" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="durationMinutes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Durata (minuti)</FormLabel>
+                  <FormControl>
+                    <Input type="number" min={1} {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}

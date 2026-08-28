@@ -7,8 +7,8 @@ import { getCurrentAdmin } from "@/lib/auth/session";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
-import { LocationForm } from "./location-form";
-import { LocationsTable } from "./locations-table";
+import { ServiceForm } from "./service-form";
+import { ServicesTable } from "./services-table";
 
 export default async function CustomerDetailPage({ params }: { params: { customerId: string } }) {
   const admin = await getCurrentAdmin();
@@ -19,9 +19,9 @@ export default async function CustomerDetailPage({ params }: { params: { custome
   });
   if (!customer) notFound();
 
-  const locations = await prisma.location.findMany({
+  const services = await prisma.service.findMany({
     where: { customerId: customer.id },
-    include: { _count: { select: { services: true } } },
+    include: { recurringSchedules: true },
     orderBy: { name: "asc" },
   });
 
@@ -36,16 +36,16 @@ export default async function CustomerDetailPage({ params }: { params: { custome
 
       <PageHeader
         title={customer.name}
-        description="Location e servizi di questo cliente."
+        description={`${customer.addressLine}, ${customer.city} (${customer.province})`}
         actions={
-          <LocationForm customerId={customer.id} trigger={<Button>Nuova location</Button>} />
+          <ServiceForm customerId={customer.id} trigger={<Button>Nuovo servizio</Button>} />
         }
       />
 
-      {locations.length === 0 ? (
-        <EmptyState title="Nessuna location presente per questo cliente." />
+      {services.length === 0 ? (
+        <EmptyState title="Nessun servizio presente per questo cliente." />
       ) : (
-        <LocationsTable customerId={customer.id} locations={locations} />
+        <ServicesTable customerId={customer.id} services={services} />
       )}
     </div>
   );

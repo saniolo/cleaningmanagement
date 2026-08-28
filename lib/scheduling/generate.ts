@@ -1,7 +1,7 @@
 import type { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/db";
-import { addDaysToDateValue, addMinutesToTimeValue, startOfUtcDay } from "@/lib/dates";
+import { addDaysToDateValue, startOfUtcDay } from "@/lib/dates";
 
 // Default rolling planning horizon: how far into the future dated
 // Assignments get generated from active RecurringSchedules. Keeping this a
@@ -76,8 +76,7 @@ export async function generateAssignmentsForWindow(
         companyId,
         serviceId: schedule.serviceId,
         date,
-        startTime: schedule.startTime,
-        endTime: addMinutesToTimeValue(schedule.startTime, schedule.estimatedDurationMinutes),
+        durationMinutes: schedule.estimatedDurationMinutes,
         sourceRecurringScheduleId: schedule.id,
       });
     }

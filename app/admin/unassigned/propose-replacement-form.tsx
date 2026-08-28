@@ -21,10 +21,17 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-interface EligibleEmployee {
+export interface EligibleEmployee {
   id: string;
   firstName: string;
   lastName: string;
+  assignedCount: number;
+  assignedMinutes: number;
+}
+
+function workloadLabel(employee: EligibleEmployee): string {
+  if (employee.assignedCount === 0) return `${employee.firstName} ${employee.lastName}`;
+  return `${employee.firstName} ${employee.lastName} — ${employee.assignedCount} attività, ${employee.assignedMinutes} min oggi`;
 }
 
 export function ProposeReplacementForm({
@@ -73,8 +80,8 @@ export function ProposeReplacementForm({
         <DialogHeader>
           <DialogTitle>Proponi sostituzione</DialogTitle>
           <DialogDescription>
-            Seleziona un dipendente idoneo (attivo, non assente, senza sovrapposizioni orarie). La
-            proposta va confermata dal dipendente.
+            Seleziona un dipendente idoneo (attivo, non assente) — mostrato con quante attività ha
+            già oggi. La proposta va confermata dal dipendente.
           </DialogDescription>
         </DialogHeader>
 
@@ -90,7 +97,7 @@ export function ProposeReplacementForm({
             <SelectContent>
               {eligibleEmployees.map((employee) => (
                 <SelectItem key={employee.id} value={employee.id}>
-                  {employee.firstName} {employee.lastName}
+                  {workloadLabel(employee)}
                 </SelectItem>
               ))}
             </SelectContent>

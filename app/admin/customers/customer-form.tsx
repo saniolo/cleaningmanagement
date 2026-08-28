@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { customerSchema, type CustomerInput } from "@/lib/validation/customer";
-import { createCustomer, updateCustomer } from "./actions";
+import { updateCustomer } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,9 +28,11 @@ import {
 
 interface CustomerFormProps {
   trigger: React.ReactNode;
-  customer?: { id: string } & CustomerInput;
+  customer: { id: string } & CustomerInput;
 }
 
+// Editing only — creation happens via NewCustomerForm, which also lets the
+// admin pick services from the activity-template catalog in the same step.
 export function CustomerForm({ trigger, customer }: CustomerFormProps) {
   const [open, setOpen] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
@@ -38,16 +40,18 @@ export function CustomerForm({ trigger, customer }: CustomerFormProps) {
   const form = useForm<CustomerInput>({
     resolver: zodResolver(customerSchema),
     defaultValues: {
-      name: customer?.name ?? "",
-      notes: customer?.notes ?? "",
+      name: customer.name,
+      addressLine: customer.addressLine,
+      city: customer.city,
+      postalCode: customer.postalCode,
+      province: customer.province,
+      notes: customer.notes ?? "",
     },
   });
 
   async function onSubmit(values: CustomerInput) {
     setServerError(null);
-    const result = customer
-      ? await updateCustomer(customer.id, values)
-      : await createCustomer(values);
+    const result = await updateCustomer(customer.id, values);
 
     if (!result.success) {
       setServerError(result.error);
@@ -63,8 +67,12 @@ export function CustomerForm({ trigger, customer }: CustomerFormProps) {
     setOpen(next);
     if (next) {
       form.reset({
-        name: customer?.name ?? "",
-        notes: customer?.notes ?? "",
+        name: customer.name,
+        addressLine: customer.addressLine,
+        city: customer.city,
+        postalCode: customer.postalCode,
+        province: customer.province,
+        notes: customer.notes ?? "",
       });
       setServerError(null);
     }
@@ -75,7 +83,7 @@ export function CustomerForm({ trigger, customer }: CustomerFormProps) {
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{customer ? "Modifica cliente" : "Nuovo cliente"}</DialogTitle>
+          <DialogTitle>Modifica cliente</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
@@ -93,6 +101,62 @@ export function CustomerForm({ trigger, customer }: CustomerFormProps) {
                 </FormItem>
               )}
             />
+
+            <FormField
+              control={form.control}
+              name="addressLine"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Indirizzo</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-3 gap-4">
+              <FormField
+                control={form.control}
+                name="city"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Città</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="postalCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>CAP</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="province"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Provincia</FormLabel>
+                    <FormControl>
+                      <Input {...field} maxLength={2} placeholder="RM" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <FormField
               control={form.control}
