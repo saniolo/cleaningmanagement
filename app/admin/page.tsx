@@ -1,21 +1,52 @@
-import Link from "next/link";
+import { CalendarClock, CheckCircle2, ClipboardList } from "lucide-react";
 
 import { prisma } from "@/lib/db";
 import { getCurrentAdmin } from "@/lib/auth/session";
 import {
   addDaysToDateValue,
+  DAY_OF_WEEK_LABELS_IT,
+  DAY_OF_WEEK_SHORT_LABELS_IT,
+  dateValueToDateString,
   formatDateRangeIT,
+  formatLongDateIT,
   formatShortDateIT,
   getMondayOfWeek,
   startOfUtcDay,
 } from "@/lib/dates";
 import { ABSENCE_TYPE_LABELS_IT } from "@/lib/validation/absence";
-import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DashboardHeader } from "@/components/admin/dashboard/dashboard-header";
+import {
+  KpiCard,
+  KpiPreviewMore,
+  KpiPreviewRow,
+} from "@/components/admin/dashboard/kpi-card";
+import { WeekOverviewCard } from "@/components/admin/dashboard/week-overview-card";
+import { AccountCard } from "@/components/admin/dashboard/account-card";
 import { AdminProfileForm } from "./admin-profile-form";
 
 const PREVIEW_SIZE = 3;
+const ROLE_LABEL = "Amministratore";
+
+function initialsOf(u: { firstName: string | null; lastName: string | null; email: string }): string {
+  const first = (u.firstName ?? "").trim();
+  const last = (u.lastName ?? "").trim();
+  const fromName = `${first[0] ?? ""}${last[0] ?? ""}`.toUpperCase();
+  return fromName || u.email.slice(0, 2).toUpperCase();
+}
+
+// Elegant empty state used inside a KPI card when there is nothing to act on.
+function KpiEmptyState({ title, description }: { title: string; description: string }) {
+  return (
+    <div className="flex flex-col items-center py-2 text-center">
+      <span className="grid h-10 w-10 place-items-center rounded-full bg-emerald-50">
+        <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+      </span>
+      <p className="mt-2 text-sm font-medium text-slate-900">{title}</p>
+      <p className="mt-0.5 text-xs text-slate-500">{description}</p>
+    </div>
+  );
+}
 
 export default async function AdminDashboardPage() {
   const admin = await getCurrentAdmin();
@@ -35,6 +66,7 @@ export default async function AdminDashboardPage() {
     unassignedItems,
     pendingConfirmationsCount,
     pendingConfirmationItems,
+    weekAssignments,
   ] = admin
     ? await Promise.all([
         // Read fresh from the DB rather than trusting the session — the JWT
@@ -89,137 +121,174 @@ export default async function AdminDashboardPage() {
           orderBy: { date: "asc" },
           take: PREVIEW_SIZE,
         }),
+        // Per-day overview for the current week — same Assignment model and
+        // week window already queried above, just grouped by day for the
+        // planning snapshot card.
+        prisma.assignment.findMany({
+          where: {
+            companyId: admin.companyId,
+            date: { gte: weekStart, lte: weekEnd },
+          },
+          select: { date: true, status: true },
+        }),
       ])
-    : [null, 0, [], 0, [], 0, []];
+    : [null, 0, [], 0, [], 0, [], []];
+
+  const today = startOfUtcDay(new Date());
+  const todayStr = dateValueToDateString(today);
+  const dateLabel = `${DAY_OF_WEEK_LABELS_IT[today.getUTCDay()]}, ${formatLongDateIT(today)}`;
+
+  const displayName = currentUser
+    ? currentUser.firstName
+      ? `${currentUser.firstName} ${currentUser.lastName ?? ""}`.trim()
+      : currentUser.email
+    : "";
+  const initials = currentUser ? initialsOf(currentUser) : "";
+  const greeting = currentUser
+    ? `Bentornato, ${displayName}`
+    : "Riepilogo operativo della settimana.";
+
+  const countsByDate = new Map<string, { total: number; unassigned: number }>();
+  for (const a of weekAssignments) {
+    const key = dateValueToDateString(a.date);
+    const entry = countsByDate.get(key) ?? { total: 0, unassigned: 0 };
+    entry.total += 1;
+    if (a.status === "UNASSIGNED") entry.unassigned += 1;
+    countsByDate.set(key, entry);
+  }
+  const overviewDays = Array.from({ length: 7 }, (_, i) => {
+    const d = addDaysToDateValue(weekStart, i);
+    const key = dateValueToDateString(d);
+    const c = countsByDate.get(key) ?? { total: 0, unassigned: 0 };
+    return {
+      key,
+      weekday: DAY_OF_WEEK_SHORT_LABELS_IT[d.getUTCDay()].toUpperCase(),
+      dayNum: String(d.getUTCDate()).padStart(2, "0"),
+      total: c.total,
+      unassigned: c.unassigned,
+      isToday: key === todayStr,
+    };
+  });
+
+  const profileFormAdmin = currentUser
+    ? {
+        firstName: currentUser.firstName ?? "",
+        lastName: currentUser.lastName ?? "",
+        email: currentUser.email,
+      }
+    : null;
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Dashboard"
-        description={
-          currentUser
-            ? `Bentornato, ${currentUser.firstName ? `${currentUser.firstName} ${currentUser.lastName}` : currentUser.email}.`
-            : "Riepilogo operativo della settimana."
-        }
-      />
+      <DashboardHeader title="Dashboard" greeting={greeting} dateLabel={dateLabel} />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <Link href="/admin/absences">
-          <Card className="h-full transition-colors hover:bg-accent">
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Richieste di assenza in attesa
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold">{pendingAbsencesCount}</div>
-              {pendingAbsenceItems.length > 0 && (
-                <ul className="mt-3 space-y-1 border-t pt-3">
-                  {pendingAbsenceItems.map((a) => (
-                    <li key={a.id} className="truncate text-xs text-muted-foreground">
-                      {a.employee.firstName} {a.employee.lastName} —{" "}
-                      {ABSENCE_TYPE_LABELS_IT[a.type] ?? a.type},{" "}
-                      {formatDateRangeIT(a.startDate, a.endDate)}
-                    </li>
-                  ))}
-                  {pendingAbsencesCount > pendingAbsenceItems.length && (
-                    <li className="text-xs text-muted-foreground">
-                      +{pendingAbsencesCount - pendingAbsenceItems.length} altre
-                    </li>
-                  )}
-                </ul>
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        <KpiCard
+          href="/admin/absences"
+          icon={CalendarClock}
+          tone="indigo"
+          title="Richieste di assenza"
+          subtitle="In attesa"
+          value={pendingAbsencesCount}
+        >
+          {pendingAbsenceItems.length > 0 && (
+            <ul className="space-y-1.5">
+              {pendingAbsenceItems.map((a) => (
+                <KpiPreviewRow key={a.id} tone="indigo">
+                  {a.employee.firstName} {a.employee.lastName} —{" "}
+                  {ABSENCE_TYPE_LABELS_IT[a.type] ?? a.type} · {formatDateRangeIT(a.startDate, a.endDate)}
+                </KpiPreviewRow>
+              ))}
+              {pendingAbsencesCount > pendingAbsenceItems.length && (
+                <KpiPreviewMore>
+                  +{pendingAbsencesCount - pendingAbsenceItems.length} altre richieste
+                </KpiPreviewMore>
               )}
-            </CardContent>
-          </Card>
-        </Link>
+            </ul>
+          )}
+        </KpiCard>
 
-        <Link href="/admin/planning">
-          <Card className="h-full transition-colors hover:bg-accent">
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Attività da assegnare questa settimana
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold">{unassignedCount}</div>
-              {unassignedItems.length > 0 && (
-                <ul className="mt-3 space-y-1 border-t pt-3">
-                  {unassignedItems.map((a) => (
-                    <li key={a.id} className="truncate text-xs text-muted-foreground">
-                      {a.service.name} — {a.service.customer.name}, {formatShortDateIT(a.date)}
-                    </li>
-                  ))}
-                  {unassignedCount > unassignedItems.length && (
-                    <li className="text-xs text-muted-foreground">
-                      +{unassignedCount - unassignedItems.length} altre
-                    </li>
-                  )}
-                </ul>
+        <KpiCard
+          href="/admin/planning"
+          icon={ClipboardList}
+          tone="blue"
+          title="Attività da assegnare"
+          subtitle="Questa settimana"
+          value={unassignedCount}
+        >
+          {unassignedItems.length > 0 && (
+            <ul className="space-y-1.5">
+              {unassignedItems.map((a) => (
+                <KpiPreviewRow key={a.id} tone="blue">
+                  {a.service.name} — {a.service.customer.name} · {formatShortDateIT(a.date)}
+                </KpiPreviewRow>
+              ))}
+              {unassignedCount > unassignedItems.length && (
+                <KpiPreviewMore>+{unassignedCount - unassignedItems.length} altre attività</KpiPreviewMore>
               )}
-            </CardContent>
-          </Card>
-        </Link>
+            </ul>
+          )}
+        </KpiCard>
 
-        <Link href="/admin/planning">
-          <Card className="h-full transition-colors hover:bg-accent">
-            <CardHeader>
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Attività da confermare questa settimana
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-semibold">{pendingConfirmationsCount}</div>
-              {pendingConfirmationItems.length > 0 && (
-                <ul className="mt-3 space-y-1 border-t pt-3">
-                  {pendingConfirmationItems.map((a) => (
-                    <li key={a.id} className="truncate text-xs text-muted-foreground">
-                      {a.service.name} — {a.service.customer.name} ({a.employee?.firstName}{" "}
-                      {a.employee?.lastName}), {formatShortDateIT(a.date)}
-                    </li>
-                  ))}
-                  {pendingConfirmationsCount > pendingConfirmationItems.length && (
-                    <li className="text-xs text-muted-foreground">
-                      +{pendingConfirmationsCount - pendingConfirmationItems.length} altre
-                    </li>
-                  )}
-                </ul>
+        <KpiCard
+          href="/admin/planning"
+          icon={CheckCircle2}
+          tone="green"
+          title="Attività da confermare"
+          subtitle="Questa settimana"
+          value={pendingConfirmationsCount}
+        >
+          {pendingConfirmationItems.length > 0 ? (
+            <ul className="space-y-1.5">
+              {pendingConfirmationItems.map((a) => (
+                <KpiPreviewRow key={a.id} tone="green">
+                  {a.service.name} — {a.service.customer.name} ({a.employee?.firstName}{" "}
+                  {a.employee?.lastName}) · {formatShortDateIT(a.date)}
+                </KpiPreviewRow>
+              ))}
+              {pendingConfirmationsCount > pendingConfirmationItems.length && (
+                <KpiPreviewMore>
+                  +{pendingConfirmationsCount - pendingConfirmationItems.length} altre attività
+                </KpiPreviewMore>
               )}
-            </CardContent>
-          </Card>
-        </Link>
+            </ul>
+          ) : (
+            <KpiEmptyState
+              title="Tutto confermato"
+              description="Nessuna attività da confermare questa settimana."
+            />
+          )}
+        </KpiCard>
       </div>
 
-      {currentUser && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Il tuo account
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <div className="truncate text-base font-semibold">
-                {currentUser.firstName
-                  ? `${currentUser.firstName} ${currentUser.lastName}`
-                  : "Nome non impostato"}
-              </div>
-              <div className="truncate text-sm text-muted-foreground">{currentUser.email}</div>
-            </div>
-            <AdminProfileForm
-              admin={{
-                firstName: currentUser.firstName ?? "",
-                lastName: currentUser.lastName ?? "",
-                email: currentUser.email,
-              }}
-              trigger={
-                <Button variant="outline" size="sm" className="shrink-0">
-                  Modifica
-                </Button>
-              }
-            />
-          </CardContent>
-        </Card>
-      )}
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <WeekOverviewCard days={overviewDays} planningHref="/admin/planning" />
+        </div>
+
+        {currentUser && (
+          <AccountCard
+            name={
+              currentUser.firstName
+                ? `${currentUser.firstName} ${currentUser.lastName ?? ""}`.trim()
+                : "Nome non impostato"
+            }
+            initials={initials}
+            email={currentUser.email}
+            roleLabel={ROLE_LABEL}
+            editSlot={
+              <AdminProfileForm
+                admin={profileFormAdmin!}
+                trigger={
+                  <Button variant="outline" size="sm" className="w-full">
+                    Modifica profilo
+                  </Button>
+                }
+              />
+            }
+          />
+        )}
+      </div>
     </div>
   );
 }

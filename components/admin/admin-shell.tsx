@@ -33,10 +33,15 @@ export function AdminShell({
   }
 
   return (
-    <div className={cn("flex", isPlanning ? "h-dvh overflow-hidden" : "min-h-screen")}>
+    <div
+      className={cn(
+        "flex bg-[#F7F8FA]",
+        isPlanning ? "h-dvh overflow-hidden" : "min-h-screen"
+      )}
+    >
       <aside
         className={cn(
-          "relative h-dvh shrink-0 border-r bg-background transition-[width] duration-200 ease-out",
+          "relative h-dvh shrink-0 border-r border-slate-200/80 bg-white transition-[width] duration-200 ease-out",
           collapsed ? "w-16" : "w-64"
         )}
       >

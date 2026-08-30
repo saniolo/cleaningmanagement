@@ -39,15 +39,15 @@ export function AdminNav({
                 title={collapsed ? label : undefined}
                 aria-label={collapsed ? label : undefined}
                 className={cn(
-                  "flex h-10 items-center rounded-md text-sm font-medium transition-all duration-200",
+                  "flex h-10 items-center rounded-[10px] text-sm font-medium transition-colors duration-150",
                   collapsed ? "justify-center px-0" : "gap-2 px-3",
                   isActive
-                    ? "bg-secondary text-secondary-foreground"
-                    : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+                    ? "bg-indigo-50 text-indigo-700"
+                    : "text-slate-500 hover:bg-slate-100 hover:text-slate-900"
                 )}
               >
                 <span className="relative shrink-0">
-                  <Icon className="h-4 w-4" />
+                  <Icon className={cn("h-4 w-4", isActive && "text-indigo-600")} />
                   {collapsed && badgeCount > 0 && (
                     <span className="absolute -right-1.5 -top-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-semibold leading-none text-destructive-foreground">
                       {badgeCount > 9 ? "9+" : badgeCount}
