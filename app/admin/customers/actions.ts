@@ -82,7 +82,6 @@ export async function createCustomer(input: NewCustomerInput): Promise<ActionRes
 
   revalidatePath("/admin/customers");
   revalidatePath("/admin/planning");
-  revalidatePath("/admin/unassigned");
   return { success: true, data: undefined };
 }
 
@@ -131,7 +130,6 @@ export async function deleteCustomer(id: string): Promise<ActionResult> {
 
   revalidatePath("/admin/customers");
   revalidatePath("/admin/planning");
-  revalidatePath("/admin/unassigned");
   revalidatePath("/app/[token]", "layout");
   return { success: true, data: undefined };
 }

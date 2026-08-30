@@ -23,7 +23,6 @@ import {
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -82,13 +81,13 @@ export function AbsenceRequestForm({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent>
+      <DialogContent className="gap-5">
         <DialogHeader>
           <DialogTitle>Richiesta di assenza</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
             <FormField
               control={form.control}
               name="type"
@@ -114,34 +113,45 @@ export function AbsenceRequestForm({
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="startDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Dal</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="endDate"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Al</FormLabel>
-                    <FormControl>
-                      <Input type="date" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+            {/* Impilati, non affiancati (vedi sotto per il perché).
+                appearance-none: il "chrome" nativo di <input type="date">
+                su Safari iOS ignora width: 100% finché non se ne disattiva
+                lo stile nativo — senza, resta più stretto degli altri
+                campi invece di allinearsi al loro bordo destro. */}
+            <FormField
+              control={form.control}
+              name="startDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Dal</FormLabel>
+                  <FormControl>
+                    <Input type="date" className="appearance-none" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="endDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Al</FormLabel>
+                  <FormControl>
+                    {/* min impedisce di scegliere dal calendario nativo una
+                        data precedente a "Dal" — la validazione vera resta
+                        comunque lo schema Zod, questo è solo un aiuto in UI. */}
+                    <Input
+                      type="date"
+                      className="appearance-none"
+                      min={form.watch("startDate") || undefined}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}
@@ -150,7 +160,7 @@ export function AbsenceRequestForm({
                 <FormItem>
                   <FormLabel>Note (opzionale)</FormLabel>
                   <FormControl>
-                    <Textarea {...field} />
+                    <Textarea rows={3} className="resize-none" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -159,19 +169,20 @@ export function AbsenceRequestForm({
 
             {serverError && <p className="text-sm text-destructive">{serverError}</p>}
 
-            <DialogFooter>
+            <div className="flex gap-3 pt-1">
               <Button
                 type="button"
                 variant="outline"
+                className="flex-1"
                 onClick={() => handleOpenChange(false)}
                 disabled={form.formState.isSubmitting}
               >
                 Annulla
               </Button>
-              <Button type="submit" disabled={form.formState.isSubmitting}>
+              <Button type="submit" className="flex-1" disabled={form.formState.isSubmitting}>
                 {form.formState.isSubmitting ? "Invio..." : "Invia richiesta"}
               </Button>
-            </DialogFooter>
+            </div>
           </form>
         </Form>
       </DialogContent>

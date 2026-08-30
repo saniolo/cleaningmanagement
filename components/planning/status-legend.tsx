@@ -1,9 +1,14 @@
 import { cn } from "@/lib/utils";
 
+// Darker/more saturated than the actual card colors on purpose — the pale
+// card backgrounds (emerald-100, amber-50...) wash out at this small a
+// size, so the swatch uses a bolder shade of the same color family instead
+// of literally matching the card.
 const LEGEND_ITEMS = [
-  { label: "Confermata", dotClassName: "border-gray-300 bg-emerald-100" },
-  { label: "Da confermare", dotClassName: "border-dashed border-violet-400 bg-violet-100" },
-  { label: "Assente", dotClassName: "border-amber-200 bg-amber-50" },
+  { label: "Confermata", dotClassName: "border-emerald-500 bg-emerald-500" },
+  { label: "Da confermare", dotClassName: "border-violet-500 bg-violet-500" },
+  { label: "Assente", dotClassName: "border-amber-500 bg-amber-500" },
+  { label: "Assenza da approvare", dotClassName: "border-red-500 bg-red-500" },
 ] as const;
 
 // Explains the grid's card colors once, here, instead of repeating a text

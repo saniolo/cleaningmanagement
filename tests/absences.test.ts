@@ -6,6 +6,7 @@ import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/db";
 import { dateStringToDateValue } from "@/lib/dates";
 import { approveAbsenceRequest, rejectAbsenceRequest } from "@/app/admin/absences/actions";
+import { createAbsenceRequest } from "@/app/app/[token]/absences/actions";
 import {
   createTestAssignment,
   createTestCompany,
@@ -150,6 +151,45 @@ describe("approveAbsenceRequest", () => {
       where: { id: absenceB.id },
     });
     expect(stillPending.status).toBe("PENDING");
+  });
+});
+
+describe("createAbsenceRequest", () => {
+  it("rejects an end date before the start date", async () => {
+    const company = await createTestCompany();
+    const employee = await createTestEmployee(company.id);
+
+    const result = await createAbsenceRequest(employee.accessToken, {
+      type: "VACATION",
+      startDate: "2031-04-10",
+      endDate: "2031-04-05",
+    });
+    expect(result.success).toBe(false);
+
+    const requests = await prisma.absenceRequest.findMany({ where: { employeeId: employee.id } });
+    expect(requests).toHaveLength(0);
+  });
+
+  it("accepts a same-day request and one spanning multiple days", async () => {
+    const company = await createTestCompany();
+    const employee = await createTestEmployee(company.id);
+
+    const sameDay = await createAbsenceRequest(employee.accessToken, {
+      type: "PERMISSION",
+      startDate: "2031-04-10",
+      endDate: "2031-04-10",
+    });
+    expect(sameDay.success).toBe(true);
+
+    const multiDay = await createAbsenceRequest(employee.accessToken, {
+      type: "VACATION",
+      startDate: "2031-05-01",
+      endDate: "2031-05-05",
+    });
+    expect(multiDay.success).toBe(true);
+
+    const requests = await prisma.absenceRequest.findMany({ where: { employeeId: employee.id } });
+    expect(requests).toHaveLength(2);
   });
 });
 

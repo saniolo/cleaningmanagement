@@ -91,6 +91,13 @@ export function formatLongDateIT(value: Date): string {
   return `${value.getUTCDate()} ${MONTH_LABELS_IT[value.getUTCMonth()]} ${value.getUTCFullYear()}`;
 }
 
+// "Lunedì 31 agosto 2026" — for places where knowing the day of week matters
+// at a glance (e.g. an employee deciding whether to accept an activity),
+// not just the bare date formatLongDateIT gives.
+export function formatLongDateWithWeekdayIT(value: Date): string {
+  return `${DAY_OF_WEEK_LABELS_IT[value.getUTCDay()]} ${formatLongDateIT(value)}`;
+}
+
 // Collapses a single-day range ("27 agosto 2026 – 27 agosto 2026") down to
 // one date, since that duplication reads as a mistake rather than a
 // one-day absence.

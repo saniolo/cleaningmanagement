@@ -17,7 +17,6 @@ const PERMISSION_ERROR = "Non hai i permessi necessari per eseguire questa opera
 
 function revalidatePlanningViews() {
   revalidatePath("/admin/planning");
-  revalidatePath("/admin/unassigned");
   // Assigning/unassigning/toggling confirmation changes the employee's
   // pending-count badge in their nav.
   revalidatePath("/app/[token]", "layout");

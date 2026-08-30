@@ -3,15 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import {
-  CalendarDays,
-  LayoutDashboard,
-  ListTodo,
-  LogOut,
-  Settings,
-  Users,
-  UserSquare2,
-} from "lucide-react";
+import { CalendarDays, LayoutDashboard, LogOut, Users, UserSquare2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -22,11 +14,15 @@ const NAV_ITEMS = [
   { href: "/admin/employees", label: "Dipendenti", icon: Users },
   { href: "/admin/customers", label: "Clienti e attività", icon: UserSquare2 },
   { href: "/admin/absences", label: "Assenze", icon: CalendarDays },
-  { href: "/admin/unassigned", label: "Attività da assegnare", icon: ListTodo },
-  { href: "/admin/settings", label: "Impostazioni", icon: Settings },
 ];
 
-export function AdminNav({ collapsed = false }: { collapsed?: boolean }) {
+export function AdminNav({
+  collapsed = false,
+  pendingAbsencesCount = 0,
+}: {
+  collapsed?: boolean;
+  pendingAbsencesCount?: number;
+}) {
   const pathname = usePathname();
 
   return (
@@ -34,6 +30,7 @@ export function AdminNav({ collapsed = false }: { collapsed?: boolean }) {
       <ul className="space-y-1">
         {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
           const isActive = exact ? pathname === href : pathname.startsWith(href);
+          const badgeCount = href === "/admin/absences" ? pendingAbsencesCount : 0;
 
           return (
             <li key={href}>
@@ -49,8 +46,20 @@ export function AdminNav({ collapsed = false }: { collapsed?: boolean }) {
                     : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
                 )}
               >
-                <Icon className="h-4 w-4 shrink-0" />
+                <span className="relative shrink-0">
+                  <Icon className="h-4 w-4" />
+                  {collapsed && badgeCount > 0 && (
+                    <span className="absolute -right-1.5 -top-1.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-destructive px-1 text-[9px] font-semibold leading-none text-destructive-foreground">
+                      {badgeCount > 9 ? "9+" : badgeCount}
+                    </span>
+                  )}
+                </span>
                 {!collapsed && <span className="truncate">{label}</span>}
+                {!collapsed && badgeCount > 0 && (
+                  <span className="ml-auto flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-semibold leading-none text-destructive-foreground">
+                    {badgeCount > 9 ? "9+" : badgeCount}
+                  </span>
+                )}
               </Link>
             </li>
           );
@@ -62,7 +71,10 @@ export function AdminNav({ collapsed = false }: { collapsed?: boolean }) {
         size="sm"
         title={collapsed ? "Esci" : undefined}
         aria-label={collapsed ? "Esci" : undefined}
-        className={cn("text-muted-foreground", collapsed ? "justify-center px-0" : "justify-start gap-2")}
+        className={cn(
+          "text-muted-foreground",
+          collapsed ? "justify-center px-0" : "justify-start gap-2"
+        )}
         onClick={() => signOut({ callbackUrl: "/login" })}
       >
         <LogOut className="h-4 w-4" />

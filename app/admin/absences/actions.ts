@@ -11,7 +11,6 @@ const PERMISSION_ERROR = "Non hai i permessi necessari per eseguire questa opera
 function revalidateAbsenceViews() {
   revalidatePath("/admin/absences");
   revalidatePath("/admin/planning");
-  revalidatePath("/admin/unassigned");
 }
 
 // PROJECT_SPEC.md section 17: approving an absence must, in one atomic step,

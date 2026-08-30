@@ -9,7 +9,13 @@ import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "admin-sidebar-collapsed";
 
-export function AdminShell({ children }: { children: React.ReactNode }) {
+export function AdminShell({
+  children,
+  pendingAbsencesCount = 0,
+}: {
+  children: React.ReactNode;
+  pendingAbsencesCount?: number;
+}) {
   const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
   const isPlanning = pathname.startsWith("/admin/planning");
@@ -41,9 +47,13 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           title={collapsed ? "Espandi menu" : "Comprimi menu"}
           className="absolute -right-3 top-5 z-20 grid h-7 w-7 place-items-center rounded-full border bg-background text-muted-foreground shadow-sm transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          {collapsed ? <PanelLeftOpen className="h-3.5 w-3.5" /> : <PanelLeftClose className="h-3.5 w-3.5" />}
+          {collapsed ? (
+            <PanelLeftOpen className="h-3.5 w-3.5" />
+          ) : (
+            <PanelLeftClose className="h-3.5 w-3.5" />
+          )}
         </button>
-        <AdminNav collapsed={collapsed} />
+        <AdminNav collapsed={collapsed} pendingAbsencesCount={pendingAbsencesCount} />
       </aside>
       <main
         className={cn(

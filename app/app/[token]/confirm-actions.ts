@@ -11,12 +11,12 @@ const STALE_ERROR = "Attività non trovata o già gestita.";
 
 function revalidateAfterResponse(token: string) {
   revalidatePath(`/app/${token}`);
+  revalidatePath(`/app/${token}/requests`);
   // The pending-count badge in the nav lives in the layout, which client-side
   // navigation won't otherwise re-fetch — revalidate it explicitly so it
   // drops immediately instead of staying stale until the next full load.
   revalidatePath("/app/[token]", "layout");
   revalidatePath("/admin/planning");
-  revalidatePath("/admin/unassigned");
 }
 
 // Conditional updateMany, not findFirst+update: only affects the row if

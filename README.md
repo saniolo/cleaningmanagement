@@ -55,9 +55,7 @@ Apri [http://localhost:3000](http://localhost:3000)
 │   │   ├── planning/          Pianificazione settimanale
 │   │   ├── employees/         Dipendenti
 │   │   ├── customers/         Clienti / location / servizi
-│   │   ├── absences/          Assenze
-│   │   ├── unassigned/        Attività da assegnare
-│   │   └── settings/
+│   │   └── absences/          Assenze
 │   ├── app/[token]/           Dashboard dipendente — link personale, nessun login
 │   │   ├── absences/
 │   │   └── profile/
@@ -184,8 +182,7 @@ pianificazione di 8 settimane (`/api/cron/generate-assignments`, protetto da `CR
 - [ ] `/login` carica e il login con l'admin da bootstrap funziona
 - [ ] `/admin` mostra la dashboard senza errori
 - [ ] Crea un cliente → location → servizio → ricorrenza dall'app
-- [ ] `/admin/settings` → "Genera prossime attività" crea le assegnazioni
-- [ ] `/admin/planning` mostra la griglia settimanale
+- [ ] `/admin/planning` mostra la griglia settimanale (le attività datate della ricorrenza appena creata compaiono da sole, senza bisogno di un trigger manuale)
 - [ ] Crea un dipendente, copia il link personale, apri `/app/[token]` in incognito → dashboard mobile visibile
 - [ ] Un token inventato su `/app/qualcosa-a-caso` → 404 (non deve mai restituire dati)
 - [ ] Richiedi un'assenza da `/app/[token]/absences`, approvala da `/admin/absences`, verifica che l'attività coinvolta torni "da assegnare"

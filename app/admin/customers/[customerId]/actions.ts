@@ -60,9 +60,8 @@ export async function createService(
       })),
     });
     // Otherwise a newly-added day sits with no dated occurrence at all
-    // until the next cron run (or someone visits /admin/settings) —
-    // indistinguishable from "this doesn't work" on Pianificazione, since
-    // there's simply no card there yet to assign.
+    // until the next cron run — indistinguishable from "this doesn't work"
+    // on Pianificazione, since there's simply no card there yet to assign.
     await generateAssignmentsForWindow(admin.companyId);
   }
 
@@ -185,7 +184,6 @@ export async function deleteService(customerId: string, serviceId: string): Prom
 
   revalidatePath(`/admin/customers/${customerId}`);
   revalidatePath("/admin/planning");
-  revalidatePath("/admin/unassigned");
   revalidatePath("/app/[token]", "layout");
   return { success: true, data: undefined };
 }

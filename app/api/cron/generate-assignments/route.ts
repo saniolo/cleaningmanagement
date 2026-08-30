@@ -4,7 +4,8 @@ import { prisma } from "@/lib/db";
 import { generateAssignmentsForWindow } from "@/lib/scheduling/generate";
 
 // Triggered daily by Vercel Cron (see vercel.json) to keep the rolling
-// planning horizon populated without an admin having to visit /admin/settings.
+// planning horizon populated automatically — there's no admin-facing manual
+// trigger for this anymore, so this route is the only thing that runs it.
 // Vercel signs cron requests with this bearer token automatically when
 // CRON_SECRET is set as an env var; without it, this route rejects every
 // request (fails closed, not open).

@@ -42,7 +42,7 @@ export default async function PlanningPage({ searchParams }: { searchParams: { w
   const weekDates = Array.from({ length: 7 }, (_, i) => addDaysToDateValue(weekStart, i));
   const weekEnd = weekDates[6];
 
-  const [employees, assignments, approvedAbsences] = await Promise.all([
+  const [employees, assignments, approvedAbsences, pendingAbsences] = await Promise.all([
     prisma.employee.findMany({
       where: { companyId: admin.companyId, active: true },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
@@ -59,6 +59,14 @@ export default async function PlanningPage({ searchParams }: { searchParams: { w
       where: {
         companyId: admin.companyId,
         status: "APPROVED",
+        startDate: { lte: weekEnd },
+        endDate: { gte: weekStart },
+      },
+    }),
+    prisma.absenceRequest.findMany({
+      where: {
+        companyId: admin.companyId,
+        status: "PENDING",
         startDate: { lte: weekEnd },
         endDate: { gte: weekStart },
       },
@@ -88,6 +96,10 @@ export default async function PlanningPage({ searchParams }: { searchParams: { w
   }));
 
   const byEmployeeId = new Map<string, Record<string, AssignmentDisplay[]>>();
+  // Monte ore settimanale per dipendente — somma delle attività assegnate
+  // (comprese quelle "da confermare": il tempo è comunque riservato finché
+  // non vengono rifiutate).
+  const totalMinutesByEmployeeId = new Map<string, number>();
   for (const a of assignments) {
     const display: AssignmentDisplay = {
       id: a.id,
@@ -111,6 +123,11 @@ export default async function PlanningPage({ searchParams }: { searchParams: { w
     const byDate = byEmployeeId.get(display.employeeId)!;
     if (!byDate[display.date]) byDate[display.date] = [];
     byDate[display.date].push(display);
+
+    totalMinutesByEmployeeId.set(
+      display.employeeId,
+      (totalMinutesByEmployeeId.get(display.employeeId) ?? 0) + a.durationMinutes
+    );
   }
 
   const weekDateStrings = weekDates.map(dateValueToDateString);
@@ -119,19 +136,28 @@ export default async function PlanningPage({ searchParams }: { searchParams: { w
   // range (see the absence-approval action), so a cell under an absent day
   // is normally just empty — indistinguishable from "nothing scheduled".
   // Mark it explicitly so it reads as "non disponibile", not "da coprire".
-  const absenceByEmployeeId = new Map<string, Record<string, string>>();
-  for (const absence of approvedAbsences) {
-    if (!absenceByEmployeeId.has(absence.employeeId)) {
-      absenceByEmployeeId.set(absence.employeeId, {});
-    }
-    const byDate = absenceByEmployeeId.get(absence.employeeId)!;
-    for (const dateStr of weekDateStrings) {
-      const date = dateStringToDateValue(dateStr);
-      if (date >= absence.startDate && date <= absence.endDate) {
-        byDate[dateStr] = absence.type;
+  function buildAbsenceByEmployeeId(absences: typeof approvedAbsences) {
+    const byEmployee = new Map<string, Record<string, string>>();
+    for (const absence of absences) {
+      if (!byEmployee.has(absence.employeeId)) {
+        byEmployee.set(absence.employeeId, {});
+      }
+      const byDate = byEmployee.get(absence.employeeId)!;
+      for (const dateStr of weekDateStrings) {
+        const date = dateStringToDateValue(dateStr);
+        if (date >= absence.startDate && date <= absence.endDate) {
+          byDate[dateStr] = absence.type;
+        }
       }
     }
+    return byEmployee;
   }
+
+  const absenceByEmployeeId = buildAbsenceByEmployeeId(approvedAbsences);
+  // Still just a request — doesn't block the employee's slot yet, so it's
+  // shown separately from the approved marker (dashed, "da approvare")
+  // rather than treated as if it were already settled.
+  const pendingAbsenceByEmployeeId = buildAbsenceByEmployeeId(pendingAbsences);
 
   const employeeWeeks: EmployeeWeek[] = employees.map((e) => ({
     id: e.id,
@@ -139,6 +165,8 @@ export default async function PlanningPage({ searchParams }: { searchParams: { w
     lastName: e.lastName,
     byDate: byEmployeeId.get(e.id) ?? {},
     absenceByDate: absenceByEmployeeId.get(e.id) ?? {},
+    pendingAbsenceByDate: pendingAbsenceByEmployeeId.get(e.id) ?? {},
+    totalMinutes: totalMinutesByEmployeeId.get(e.id) ?? 0,
   }));
 
   const unassignedGroupsById = new Map<string, UnassignedPlanningGroup>();
