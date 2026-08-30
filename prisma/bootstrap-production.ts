@@ -32,8 +32,8 @@ async function main() {
   const adminEmail = requireEnv("BOOTSTRAP_ADMIN_EMAIL");
   const adminPassword = requireEnv("BOOTSTRAP_ADMIN_PASSWORD");
 
-  if (adminPassword.length < 12) {
-    throw new Error("BOOTSTRAP_ADMIN_PASSWORD deve avere almeno 12 caratteri.");
+  if (adminPassword.length < 8) {
+    throw new Error("BOOTSTRAP_ADMIN_PASSWORD deve avere almeno 8 caratteri.");
   }
 
   const existingAdmin = await prisma.user.findUnique({ where: { email: adminEmail } });
