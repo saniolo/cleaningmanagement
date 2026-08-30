@@ -58,12 +58,16 @@ export default async function EmployeeWeekPage({ params }: { params: { token: st
                 {dayAssignments.map((a) => (
                   <EmployeeAssignmentCard
                     key={a.id}
+                    id={a.id}
+                    token={params.token}
                     dateLabel={dateLabel}
                     durationMinutes={a.durationMinutes}
                     customerName={a.service.customer.name}
                     address={`${a.service.customer.addressLine}, ${a.service.customer.postalCode} ${a.service.customer.city} (${a.service.customer.province})`}
                     serviceName={a.service.name}
                     operationalNotes={a.service.operationalNotes ?? undefined}
+                    requiresConfirmation={a.requiresConfirmation}
+                    confirmedAt={a.confirmedAt}
                   />
                 ))}
               </div>

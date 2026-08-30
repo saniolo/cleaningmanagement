@@ -18,8 +18,7 @@ const PERMISSION_ERROR = "Non hai i permessi necessari per eseguire questa opera
 function revalidatePlanningViews() {
   revalidatePath("/admin/planning");
   revalidatePath("/admin/unassigned");
-  // A direct assignment can cancel a pending replacement request (see
-  // updateAssignment below), which changes the proposed employee's
+  // Assigning/unassigning/toggling confirmation changes the employee's
   // pending-count badge in their nav.
   revalidatePath("/app/[token]", "layout");
 }
@@ -85,31 +84,34 @@ export async function updateAssignment(id: string, input: AssignmentInput): Prom
     if (!employee) return { success: false, error: "Dipendente non trovato." };
   }
 
-  await prisma.$transaction([
-    prisma.assignment.update({
-      where: { id },
-      data: {
-        date,
-        durationMinutes: parsed.data.durationMinutes,
-        employeeId: parsed.data.employeeId ?? null,
-        status: parsed.data.employeeId ? "ASSIGNED" : "UNASSIGNED",
-      },
-    }),
-    // Directly assigning someone fills the slot, so any pending replacement
-    // proposal for it is now moot — cancel it rather than leaving it
-    // dangling. Without this, an employee could still see (and act on) a
-    // stale "Accetta/Rifiuta" prompt for an activity someone else already
-    // took, and rejecting it would silently do nothing useful since the
-    // activity was never theirs to free up.
-    ...(parsed.data.employeeId
-      ? [
-          prisma.replacementRequest.updateMany({
-            where: { assignmentId: id, status: "PENDING" },
-            data: { status: "CANCELLED", respondedAt: new Date() },
-          }),
-        ]
-      : []),
-  ]);
+  // No employee, no confirmation to ask for. Otherwise, keep the existing
+  // confirmedAt only if nothing about what was confirmed actually changed
+  // (same employee, date, and duration) — editing any of those means the
+  // employee hasn't confirmed *this* version yet, so it goes back to
+  // pending rather than silently staying "confirmed".
+  const requiresConfirmation = parsed.data.employeeId
+    ? (parsed.data.requiresConfirmation ?? false)
+    : false;
+  const unchanged =
+    existing.employeeId === (parsed.data.employeeId ?? null) &&
+    existing.date.getTime() === date.getTime() &&
+    existing.durationMinutes === parsed.data.durationMinutes;
+  const confirmedAt =
+    requiresConfirmation && existing.requiresConfirmation && existing.confirmedAt && unchanged
+      ? existing.confirmedAt
+      : null;
+
+  await prisma.assignment.update({
+    where: { id },
+    data: {
+      date,
+      durationMinutes: parsed.data.durationMinutes,
+      employeeId: parsed.data.employeeId ?? null,
+      status: parsed.data.employeeId ? "ASSIGNED" : "UNASSIGNED",
+      requiresConfirmation,
+      confirmedAt,
+    },
+  });
 
   revalidatePlanningViews();
   return { success: true, data: undefined };

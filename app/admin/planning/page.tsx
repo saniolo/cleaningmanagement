@@ -12,13 +12,12 @@ import {
 } from "@/lib/dates";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
-import { AssignmentCard } from "@/components/planning/assignment-card";
 import { WeekNavigation } from "@/components/planning/week-navigation";
-import { Button } from "@/components/ui/button";
-import { CreateAssignmentForm, type ServiceOption } from "./create-assignment-form";
-import { EditAssignmentForm } from "./edit-assignment-form";
+import { StatusLegend } from "@/components/planning/status-legend";
 import { CloneWeekButton } from "./clone-week-button";
 import { PlanningGrid, type EmployeeWeek } from "./planning-grid";
+import { UnassignedPlanningPanel, type UnassignedPlanningGroup } from "./unassigned-planning-panel";
+import { PlanningSearchInput, PlanningSearchProvider } from "./planning-search";
 
 interface AssignmentDisplay {
   id: string;
@@ -28,7 +27,8 @@ interface AssignmentDisplay {
   address: string;
   customerName: string;
   employeeId?: string;
-  proposedEmployeeName?: string;
+  requiresConfirmation?: boolean;
+  confirmedAt?: string;
 }
 
 export default async function PlanningPage({ searchParams }: { searchParams: { week?: string } }) {
@@ -42,7 +42,7 @@ export default async function PlanningPage({ searchParams }: { searchParams: { w
   const weekDates = Array.from({ length: 7 }, (_, i) => addDaysToDateValue(weekStart, i));
   const weekEnd = weekDates[6];
 
-  const [employees, assignments, services, pendingReplacements] = await Promise.all([
+  const [employees, assignments, approvedAbsences] = await Promise.all([
     prisma.employee.findMany({
       where: { companyId: admin.companyId, active: true },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
@@ -55,47 +55,39 @@ export default async function PlanningPage({ searchParams }: { searchParams: { w
       },
       orderBy: { service: { name: "asc" } },
     }),
-    prisma.service.findMany({
+    prisma.absenceRequest.findMany({
       where: {
         companyId: admin.companyId,
-        active: true,
-        customer: { active: true },
+        status: "APPROVED",
+        startDate: { lte: weekEnd },
+        endDate: { gte: weekStart },
       },
-      include: { customer: true },
-      orderBy: { name: "asc" },
-    }),
-    prisma.replacementRequest.findMany({
-      where: {
-        companyId: admin.companyId,
-        status: "PENDING",
-        assignment: { date: { gte: weekStart, lte: weekEnd } },
-      },
-      include: { proposedEmployee: true },
     }),
   ]);
 
-  const proposedEmployeeNameByAssignmentId = new Map(
-    pendingReplacements.map((r) => [
-      r.assignmentId,
-      `${r.proposedEmployee.firstName} ${r.proposedEmployee.lastName}`,
-    ])
-  );
+  const absenceRangesByEmployeeId = new Map<
+    string,
+    { startDate: string; endDate: string; type: string }[]
+  >();
+  for (const absence of approvedAbsences) {
+    if (!absenceRangesByEmployeeId.has(absence.employeeId)) {
+      absenceRangesByEmployeeId.set(absence.employeeId, []);
+    }
+    absenceRangesByEmployeeId.get(absence.employeeId)!.push({
+      startDate: dateValueToDateString(absence.startDate),
+      endDate: dateValueToDateString(absence.endDate),
+      type: absence.type,
+    });
+  }
 
   const employeeOptions = employees.map((e) => ({
     id: e.id,
     firstName: e.firstName,
     lastName: e.lastName,
-  }));
-
-  const serviceOptions: ServiceOption[] = services.map((s) => ({
-    id: s.id,
-    label: `${s.customer.name} · ${s.name}`,
-    estimatedDurationMinutes: s.estimatedDurationMinutes,
+    absences: absenceRangesByEmployeeId.get(e.id) ?? [],
   }));
 
   const byEmployeeId = new Map<string, Record<string, AssignmentDisplay[]>>();
-  const unassigned: AssignmentDisplay[] = [];
-
   for (const a of assignments) {
     const display: AssignmentDisplay = {
       id: a.id,
@@ -105,11 +97,11 @@ export default async function PlanningPage({ searchParams }: { searchParams: { w
       address: a.service.customer.addressLine,
       customerName: a.service.customer.name,
       employeeId: a.employeeId ?? undefined,
-      proposedEmployeeName: proposedEmployeeNameByAssignmentId.get(a.id),
+      requiresConfirmation: a.requiresConfirmation,
+      confirmedAt: a.confirmedAt ? a.confirmedAt.toISOString() : undefined,
     };
 
     if (!display.employeeId) {
-      unassigned.push(display);
       continue;
     }
 
@@ -122,81 +114,112 @@ export default async function PlanningPage({ searchParams }: { searchParams: { w
   }
 
   const weekDateStrings = weekDates.map(dateValueToDateString);
+
+  // Approved absences already free up any ASSIGNED activity for their date
+  // range (see the absence-approval action), so a cell under an absent day
+  // is normally just empty — indistinguishable from "nothing scheduled".
+  // Mark it explicitly so it reads as "non disponibile", not "da coprire".
+  const absenceByEmployeeId = new Map<string, Record<string, string>>();
+  for (const absence of approvedAbsences) {
+    if (!absenceByEmployeeId.has(absence.employeeId)) {
+      absenceByEmployeeId.set(absence.employeeId, {});
+    }
+    const byDate = absenceByEmployeeId.get(absence.employeeId)!;
+    for (const dateStr of weekDateStrings) {
+      const date = dateStringToDateValue(dateStr);
+      if (date >= absence.startDate && date <= absence.endDate) {
+        byDate[dateStr] = absence.type;
+      }
+    }
+  }
+
   const employeeWeeks: EmployeeWeek[] = employees.map((e) => ({
     id: e.id,
     firstName: e.firstName,
     lastName: e.lastName,
     byDate: byEmployeeId.get(e.id) ?? {},
+    absenceByDate: absenceByEmployeeId.get(e.id) ?? {},
   }));
 
+  const unassignedGroupsById = new Map<string, UnassignedPlanningGroup>();
+  for (const a of assignments) {
+    if (a.employeeId) continue;
+    // The service is the Cliente–Attività identity. All of its uncovered
+    // dates belong in one card, even when they were generated by different
+    // recurring schedules or created as one-off occurrences.
+    const groupId = a.serviceId;
+    let group = unassignedGroupsById.get(groupId);
+    if (!group) {
+      group = {
+        id: groupId,
+        customerName: a.service.customer.name,
+        address: a.service.customer.addressLine,
+        serviceName: a.service.name,
+        durationMinutes: a.durationMinutes,
+        occurrences: [],
+      };
+      unassignedGroupsById.set(groupId, group);
+    }
+    group.occurrences.push({
+      id: a.id,
+      date: dateValueToDateString(a.date),
+      displayDate: formatLongDateIT(a.date),
+      durationMinutes: a.durationMinutes,
+      requiresConfirmation: a.requiresConfirmation,
+    });
+  }
+  const unassignedGroups = Array.from(unassignedGroupsById.values())
+    .map((group) => ({
+      ...group,
+      occurrences: group.occurrences.sort((a, b) => a.date.localeCompare(b.date)),
+    }))
+    .sort(
+      (a, b) =>
+        a.customerName.localeCompare(b.customerName, "it") ||
+        a.serviceName.localeCompare(b.serviceName, "it")
+    );
+
   return (
-    <div className="space-y-8">
-      <PageHeader
-        title="Pianificazione"
-        description={`${formatLongDateIT(weekStart)} – ${formatLongDateIT(weekEnd)}`}
-        actions={
-          <div className="flex items-center gap-2">
-            <WeekNavigation weekStart={weekStart} basePath="/admin/planning" />
-            <CloneWeekButton weekStart={dateValueToDateString(weekStart)} />
-            <CreateAssignmentForm
-              services={serviceOptions}
-              employees={employeeOptions}
-              defaultDate={dateValueToDateString(weekStart)}
-              trigger={<Button>Nuova attività</Button>}
-            />
-          </div>
+    <PlanningSearchProvider>
+      <div
+        className={
+          employees.length > 0
+            ? "grid min-h-0 gap-5 xl:h-full xl:grid-cols-[minmax(0,1fr)_21rem]"
+            : "min-h-0 xl:h-full"
         }
-      />
+      >
+        <section className="flex min-h-0 min-w-0 flex-col gap-5">
+          <PageHeader
+            title="Pianificazione"
+            description={`${formatLongDateIT(weekStart)} – ${formatLongDateIT(weekEnd)}`}
+            actions={
+              <div className="flex flex-col items-end gap-2">
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <PlanningSearchInput />
+                  <WeekNavigation weekStart={weekStart} basePath="/admin/planning" />
+                  <CloneWeekButton weekStart={dateValueToDateString(weekStart)} />
+                </div>
+                <StatusLegend />
+              </div>
+            }
+          />
 
-      {employees.length === 0 ? (
-        <EmptyState
-          title="Nessun dipendente presente."
-          description="Aggiungi dipendenti da Dipendenti per iniziare a pianificare."
-        />
-      ) : (
-        <PlanningGrid
-          employees={employeeWeeks}
-          weekDates={weekDateStrings}
-          employeeOptions={employeeOptions}
-        />
-      )}
+          {employees.length === 0 ? (
+            <EmptyState
+              title="Nessun dipendente presente."
+              description="Aggiungi dipendenti da Dipendenti per iniziare a pianificare."
+            />
+          ) : (
+            <div className="min-h-0 min-w-0 flex-1">
+              <PlanningGrid employees={employeeWeeks} weekDates={weekDateStrings} />
+            </div>
+          )}
+        </section>
 
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold">Attività da assegnare (questa settimana)</h2>
-        {unassigned.length === 0 ? (
-          <EmptyState title="Nessuna attività da assegnare questa settimana." />
-        ) : (
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {unassigned.map((a) => (
-              <EditAssignmentForm
-                key={a.id}
-                employees={employeeOptions}
-                assignment={{
-                  id: a.id,
-                  date: a.date,
-                  durationMinutes: a.durationMinutes,
-                  employeeId: a.employeeId,
-                }}
-                serviceName={a.serviceName}
-                address={a.address}
-                customerName={a.customerName}
-                trigger={
-                  <button type="button" className="block w-full text-left">
-                    <AssignmentCard
-                      durationMinutes={a.durationMinutes}
-                      customerName={a.customerName}
-                      address={a.address}
-                      serviceName={a.serviceName}
-                      unassigned
-                      proposedEmployeeName={a.proposedEmployeeName}
-                    />
-                  </button>
-                }
-              />
-            ))}
-          </div>
+        {employees.length > 0 && (
+          <UnassignedPlanningPanel groups={unassignedGroups} employees={employeeOptions} />
         )}
       </div>
-    </div>
+    </PlanningSearchProvider>
   );
 }

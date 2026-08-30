@@ -13,8 +13,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { EditAssignmentForm } from "@/app/admin/planning/edit-assignment-form";
-import { ProposeReplacementForm, type EligibleEmployee } from "./propose-replacement-form";
-import { CancelReplacementButton } from "./cancel-replacement-button";
 import { BulkAssignForm } from "./bulk-assign-form";
 import type { EmployeeOption } from "@/components/planning/employee-selector";
 
@@ -25,8 +23,6 @@ export interface UnassignedOccurrence {
   durationMinutes: number;
   serviceName: string;
   sourceRecurringScheduleId: string | null;
-  pendingReplacement: { id: string; proposedEmployeeName: string } | null;
-  eligibleEmployees: EligibleEmployee[];
 }
 
 export function CustomerUnassignedCard({
@@ -100,9 +96,7 @@ export function CustomerUnassignedCard({
 
         <div className="space-y-4">
           {groups.map((group) => {
-            const bulkAssignmentIds = group.items
-              .filter((occ) => !occ.pendingReplacement)
-              .map((occ) => occ.id);
+            const assignmentIds = group.items.map((occ) => occ.id);
 
             return (
               <div key={group.key} className="space-y-3 rounded-lg border p-3">
@@ -123,43 +117,35 @@ export function CustomerUnassignedCard({
                         <div className="font-medium">{occ.displayDate}</div>
                         <div className="text-muted-foreground">{occ.durationMinutes} min</div>
                       </div>
-                      {occ.pendingReplacement ? (
-                        <div className="flex items-center gap-1">
-                          <Badge variant="secondary" className="whitespace-nowrap">
-                            In attesa: {occ.pendingReplacement.proposedEmployeeName}
-                          </Badge>
-                          <CancelReplacementButton id={occ.pendingReplacement.id} />
-                        </div>
-                      ) : (
-                        <EditAssignmentForm
-                          employees={employees}
-                          assignment={{
-                            id: occ.id,
-                            date: occ.date,
-                            durationMinutes: occ.durationMinutes,
-                            employeeId: undefined,
-                          }}
-                          serviceName={group.serviceName}
-                          address={address}
-                          customerName={customerName}
-                          trigger={
-                            <Button size="sm" variant="ghost">
-                              Assegna
-                            </Button>
-                          }
-                        />
-                      )}
+                      <EditAssignmentForm
+                        employees={employees}
+                        assignment={{
+                          id: occ.id,
+                          date: occ.date,
+                          durationMinutes: occ.durationMinutes,
+                          employeeId: undefined,
+                        }}
+                        serviceName={group.serviceName}
+                        address={address}
+                        customerName={customerName}
+                        trigger={
+                          <Button size="sm" variant="ghost">
+                            Assegna
+                          </Button>
+                        }
+                      />
                     </div>
                   ))}
                 </div>
 
                 <BulkAssignForm
-                  assignmentIds={bulkAssignmentIds}
-                  dateCount={bulkAssignmentIds.length}
+                  assignmentIds={assignmentIds}
+                  dateCount={assignmentIds.length}
+                  dates={group.items.map((occ) => occ.date)}
                   employees={employees}
                   trigger={
-                    <Button size="sm" className="w-full" disabled={bulkAssignmentIds.length === 0}>
-                      Assegna a tutte ({bulkAssignmentIds.length})
+                    <Button size="sm" className="w-full">
+                      Assegna a tutte ({assignmentIds.length})
                     </Button>
                   }
                 />
@@ -175,41 +161,23 @@ export function CustomerUnassignedCard({
               </div>
               <div className="text-xs text-muted-foreground">{occ.durationMinutes} min</div>
 
-              {occ.pendingReplacement ? (
-                <div className="space-y-2 rounded-md bg-muted p-2 text-xs">
-                  <p>Proposta a {occ.pendingReplacement.proposedEmployeeName}, in attesa di risposta.</p>
-                  <CancelReplacementButton id={occ.pendingReplacement.id} />
-                </div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  <EditAssignmentForm
-                    employees={employees}
-                    assignment={{
-                      id: occ.id,
-                      date: occ.date,
-                      durationMinutes: occ.durationMinutes,
-                      employeeId: undefined,
-                    }}
-                    serviceName={occ.serviceName}
-                    address={address}
-                    customerName={customerName}
-                    trigger={
-                      <Button size="sm" variant="outline" className="w-full">
-                        Assegna direttamente
-                      </Button>
-                    }
-                  />
-                  <ProposeReplacementForm
-                    assignmentId={occ.id}
-                    eligibleEmployees={occ.eligibleEmployees}
-                    trigger={
-                      <Button size="sm" className="w-full">
-                        Proponi sostituzione
-                      </Button>
-                    }
-                  />
-                </div>
-              )}
+              <EditAssignmentForm
+                employees={employees}
+                assignment={{
+                  id: occ.id,
+                  date: occ.date,
+                  durationMinutes: occ.durationMinutes,
+                  employeeId: undefined,
+                }}
+                serviceName={occ.serviceName}
+                address={address}
+                customerName={customerName}
+                trigger={
+                  <Button size="sm" variant="outline" className="w-full">
+                    Assegna direttamente
+                  </Button>
+                }
+              />
             </div>
           ))}
         </div>

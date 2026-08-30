@@ -5,9 +5,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { assignmentSchema, type AssignmentInput } from "@/lib/validation/assignment";
+import { cn } from "@/lib/utils";
 import { updateAssignment } from "./actions";
 import { EmployeeSelector, type EmployeeOption } from "@/components/planning/employee-selector";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   Dialog,
@@ -35,6 +37,7 @@ interface EditAssignmentFormProps {
     date: string;
     durationMinutes: number;
     employeeId?: string;
+    requiresConfirmation?: boolean;
   };
   serviceName: string;
   address: string;
@@ -58,6 +61,7 @@ export function EditAssignmentForm({
       date: assignment.date,
       durationMinutes: assignment.durationMinutes,
       employeeId: assignment.employeeId,
+      requiresConfirmation: assignment.requiresConfirmation ?? false,
     },
   });
 
@@ -84,6 +88,7 @@ export function EditAssignmentForm({
             date: assignment.date,
             durationMinutes: assignment.durationMinutes,
             employeeId: assignment.employeeId,
+            requiresConfirmation: assignment.requiresConfirmation ?? false,
           });
           setServerError(null);
         }
@@ -139,9 +144,34 @@ export function EditAssignmentForm({
                       employees={employees}
                       value={field.value}
                       onChange={field.onChange}
+                      date={form.watch("date")}
                     />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="requiresConfirmation"
+              render={({ field }) => (
+                <FormItem>
+                  <label
+                    className={cn(
+                      "flex items-center gap-2 text-sm text-muted-foreground",
+                      form.watch("employeeId") ? "cursor-pointer" : "cursor-not-allowed opacity-50"
+                    )}
+                  >
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value ?? false}
+                        onCheckedChange={field.onChange}
+                        disabled={!form.watch("employeeId")}
+                      />
+                    </FormControl>
+                    Richiede conferma
+                  </label>
                 </FormItem>
               )}
             />

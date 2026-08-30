@@ -20,22 +20,28 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import type { EmployeeOption } from "@/components/planning/employee-selector";
+import { ABSENCE_TYPE_LABELS_IT } from "@/lib/validation/absence";
 
-interface EmployeeOption {
-  id: string;
-  firstName: string;
-  lastName: string;
+// At least one of the batch's dates falls in this employee's approved
+// absence — doesn't say which or how many, just enough to flag it before
+// the manager assigns across the whole batch in one click.
+function absenceLabelForAnyDate(employee: EmployeeOption, dates: string[]): string | undefined {
+  const hit = employee.absences?.find((a) => dates.some((d) => d >= a.startDate && d <= a.endDate));
+  return hit ? (ABSENCE_TYPE_LABELS_IT[hit.type] ?? "Assente") : undefined;
 }
 
 export function BulkAssignForm({
   trigger,
   assignmentIds,
   dateCount,
+  dates,
   employees,
 }: {
   trigger: React.ReactNode;
   assignmentIds: string[];
   dateCount: number;
+  dates: string[];
   employees: EmployeeOption[];
 }) {
   const [open, setOpen] = useState(false);
@@ -85,11 +91,19 @@ export function BulkAssignForm({
             <SelectValue placeholder="Seleziona un dipendente" />
           </SelectTrigger>
           <SelectContent>
-            {employees.map((employee) => (
-              <SelectItem key={employee.id} value={employee.id}>
-                {employee.firstName} {employee.lastName}
-              </SelectItem>
-            ))}
+            {employees.map((employee) => {
+              const absenceLabel = absenceLabelForAnyDate(employee, dates);
+              return (
+                <SelectItem key={employee.id} value={employee.id}>
+                  {employee.firstName} {employee.lastName}
+                  {absenceLabel && (
+                    <span className="ml-1.5 text-amber-600 dark:text-amber-500">
+                      · {absenceLabel}
+                    </span>
+                  )}
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
 

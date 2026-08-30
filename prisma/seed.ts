@@ -262,7 +262,8 @@ async function main() {
   await generateAssignmentsForWindow(company.id);
 
   // --- Staff the next two weeks, leaving exactly 4 uncovered near the start
-  //     (2 plain unassigned, 2 with a pending replacement proposal).
+  //     (2 plain unassigned, 2 assigned but "Richiede conferma" — pending
+  //     the employee's accept/reject).
   //     Anchored on `today` rather than the calendar week: generation never
   //     backfills days that have already passed within the current week, so
   //     a Monday-anchored window can come up short depending on what day of
@@ -294,27 +295,19 @@ async function main() {
   }
 
   // Leave `toLeaveUncovered` as-is (already UNASSIGNED from generation) —
-  // 2 stay plain, 2 get a pending replacement proposal below.
-  const [plainUncovered1, plainUncovered2, proposed1, proposed2] = toLeaveUncovered;
+  // 2 stay plain, 2 get assigned with "Richiede conferma" set below.
+  const [plainUncovered1, plainUncovered2, pending1, pending2] = toLeaveUncovered;
 
-  if (proposed1) {
-    await prisma.replacementRequest.create({
-      data: {
-        companyId: company.id,
-        assignmentId: proposed1.id,
-        proposedEmployeeId: employees[0].id,
-        status: "PENDING",
-      },
+  if (pending1) {
+    await prisma.assignment.update({
+      where: { id: pending1.id },
+      data: { employeeId: employees[0].id, status: "ASSIGNED", requiresConfirmation: true },
     });
   }
-  if (proposed2) {
-    await prisma.replacementRequest.create({
-      data: {
-        companyId: company.id,
-        assignmentId: proposed2.id,
-        proposedEmployeeId: employees[1].id,
-        status: "PENDING",
-      },
+  if (pending2) {
+    await prisma.assignment.update({
+      where: { id: pending2.id },
+      data: { employeeId: employees[1].id, status: "ASSIGNED", requiresConfirmation: true },
     });
   }
   void plainUncovered1;

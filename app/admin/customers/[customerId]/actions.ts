@@ -178,7 +178,6 @@ export async function deleteService(customerId: string, serviceId: string): Prom
   if (!existing) return { success: false, error: "Servizio non trovato." };
 
   await prisma.$transaction([
-    prisma.replacementRequest.deleteMany({ where: { assignment: { serviceId } } }),
     prisma.assignment.deleteMany({ where: { serviceId } }),
     prisma.recurringSchedule.deleteMany({ where: { serviceId } }),
     prisma.service.delete({ where: { id: serviceId } }),

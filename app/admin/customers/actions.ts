@@ -123,7 +123,6 @@ export async function deleteCustomer(id: string): Promise<ActionResult> {
   if (!existing) return { success: false, error: "Cliente non trovato." };
 
   await prisma.$transaction([
-    prisma.replacementRequest.deleteMany({ where: { assignment: { service: { customerId: id } } } }),
     prisma.assignment.deleteMany({ where: { service: { customerId: id } } }),
     prisma.recurringSchedule.deleteMany({ where: { service: { customerId: id } } }),
     prisma.service.deleteMany({ where: { customerId: id } }),

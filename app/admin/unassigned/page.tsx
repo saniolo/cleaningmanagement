@@ -2,8 +2,7 @@ import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/db";
 import { getCurrentAdmin } from "@/lib/auth/session";
-import { getEligibleEmployees } from "@/lib/scheduling/eligibility";
-import { dateValueToDateString, formatLongDateIT } from "@/lib/dates";
+import { dateValueToDateString, formatLongDateIT, startOfUtcDay } from "@/lib/dates";
 import { PageHeader } from "@/components/shared/page-header";
 import { EmptyState } from "@/components/shared/empty-state";
 import { CustomerUnassignedCard, type UnassignedOccurrence } from "./customer-unassigned-card";
@@ -12,7 +11,7 @@ export default async function UnassignedPage() {
   const admin = await getCurrentAdmin();
   if (!admin) redirect("/login");
 
-  const [employees, assignments] = await Promise.all([
+  const [employees, assignments, approvedAbsences] = await Promise.all([
     prisma.employee.findMany({
       where: { companyId: admin.companyId, active: true },
       orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
@@ -22,12 +21,35 @@ export default async function UnassignedPage() {
       include: { service: { include: { customer: true } } },
       orderBy: { date: "asc" },
     }),
+    prisma.absenceRequest.findMany({
+      where: {
+        companyId: admin.companyId,
+        status: "APPROVED",
+        endDate: { gte: startOfUtcDay(new Date()) },
+      },
+    }),
   ]);
+
+  const absenceRangesByEmployeeId = new Map<
+    string,
+    { startDate: string; endDate: string; type: string }[]
+  >();
+  for (const absence of approvedAbsences) {
+    if (!absenceRangesByEmployeeId.has(absence.employeeId)) {
+      absenceRangesByEmployeeId.set(absence.employeeId, []);
+    }
+    absenceRangesByEmployeeId.get(absence.employeeId)!.push({
+      startDate: dateValueToDateString(absence.startDate),
+      endDate: dateValueToDateString(absence.endDate),
+      type: absence.type,
+    });
+  }
 
   const employeeOptions = employees.map((e) => ({
     id: e.id,
     firstName: e.firstName,
     lastName: e.lastName,
+    absences: absenceRangesByEmployeeId.get(e.id) ?? [],
   }));
 
   // One card per customer — clicking it drills into every occurrence still
@@ -46,15 +68,6 @@ export default async function UnassignedPage() {
   const byCustomer = new Map<string, CustomerGroup>();
 
   for (const a of assignments) {
-    const pendingReplacement = await prisma.replacementRequest.findFirst({
-      where: { assignmentId: a.id, status: "PENDING" },
-      include: { proposedEmployee: true },
-    });
-
-    const eligibleEmployees = pendingReplacement
-      ? []
-      : await getEligibleEmployees(admin.companyId, a.date);
-
     const customer = a.service.customer;
     let group = byCustomer.get(customer.id);
     if (!group) {
@@ -76,13 +89,6 @@ export default async function UnassignedPage() {
       durationMinutes: a.durationMinutes,
       serviceName: a.service.name,
       sourceRecurringScheduleId: a.sourceRecurringScheduleId,
-      pendingReplacement: pendingReplacement
-        ? {
-            id: pendingReplacement.id,
-            proposedEmployeeName: `${pendingReplacement.proposedEmployee.firstName} ${pendingReplacement.proposedEmployee.lastName}`,
-          }
-        : null,
-      eligibleEmployees,
     });
   }
 

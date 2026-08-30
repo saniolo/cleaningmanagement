@@ -12,6 +12,7 @@ const baseAssignmentFields = {
     .string()
     .optional()
     .transform((v) => (v && v !== UNASSIGNED_VALUE ? v : undefined)),
+  requiresConfirmation: z.boolean().optional(),
 };
 
 export const assignmentSchema = z.object(baseAssignmentFields);

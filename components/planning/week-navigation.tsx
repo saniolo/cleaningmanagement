@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { addDaysToDateValue, dateValueToDateString } from "@/lib/dates";
-import { Button } from "@/components/ui/button";
 
 interface WeekNavigationProps {
   weekStart: Date;
@@ -14,22 +13,30 @@ export function WeekNavigation({ weekStart, basePath }: WeekNavigationProps) {
   const nextWeek = dateValueToDateString(addDaysToDateValue(weekStart, 7));
 
   return (
-    <div className="flex items-center gap-2">
-      <Button variant="outline" size="sm" className="gap-1" asChild>
-        <Link href={`${basePath}?week=${prevWeek}`}>
-          <ChevronLeft className="h-4 w-4" />
+    <nav
+      aria-label="Navigazione settimanale"
+      className="flex h-9 items-stretch overflow-hidden rounded-md border bg-background shadow-sm"
+    >
+        <Link
+          href={`${basePath}?week=${prevWeek}`}
+          className="flex items-center gap-1.5 border-r px-3 text-[13px] font-medium transition-colors hover:bg-muted focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
           Precedente
         </Link>
-      </Button>
-      <Button variant="outline" size="sm" asChild>
-        <Link href={basePath}>Oggi</Link>
-      </Button>
-      <Button variant="outline" size="sm" className="gap-1" asChild>
-        <Link href={`${basePath}?week=${nextWeek}`}>
-          Successiva
-          <ChevronRight className="h-4 w-4" />
+        <Link
+          href={basePath}
+          className="flex items-center border-r px-3 text-[13px] font-medium transition-colors hover:bg-muted focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Oggi
         </Link>
-      </Button>
-    </div>
+        <Link
+          href={`${basePath}?week=${nextWeek}`}
+          className="flex items-center gap-1.5 px-3 text-[13px] font-medium transition-colors hover:bg-muted focus-visible:z-10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Successiva
+          <ChevronRight className="h-3.5 w-3.5" />
+        </Link>
+    </nav>
   );
 }

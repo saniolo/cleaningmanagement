@@ -2,23 +2,22 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, Repeat, User, UserSquare2 } from "lucide-react";
+import { CalendarDays, User, UserSquare2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
   { segment: "", label: "Settimana", icon: CalendarDays },
-  { segment: "replacements", label: "Sostituzioni", icon: Repeat },
   { segment: "absences", label: "Assenze", icon: UserSquare2 },
   { segment: "profile", label: "Profilo", icon: User },
 ];
 
 export function EmployeeNav({
   token,
-  pendingReplacementsCount = 0,
+  pendingConfirmationsCount = 0,
 }: {
   token: string;
-  pendingReplacementsCount?: number;
+  pendingConfirmationsCount?: number;
 }) {
   const pathname = usePathname();
   const base = `/app/${token}`;
@@ -29,7 +28,9 @@ export function EmployeeNav({
         {NAV_ITEMS.map(({ segment, label, icon: Icon }) => {
           const href = segment ? `${base}/${segment}` : base;
           const isActive = pathname === href;
-          const badgeCount = segment === "replacements" ? pendingReplacementsCount : 0;
+          // "Settimana" is where confirmations now live (no more separate
+          // Sostituzioni page), so its badge is what needs the count.
+          const badgeCount = segment === "" ? pendingConfirmationsCount : 0;
 
           return (
             <li key={href} className="flex-1">

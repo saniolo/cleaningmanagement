@@ -26,11 +26,11 @@ const NAV_ITEMS = [
   { href: "/admin/settings", label: "Impostazioni", icon: Settings },
 ];
 
-export function AdminNav() {
+export function AdminNav({ collapsed = false }: { collapsed?: boolean }) {
   const pathname = usePathname();
 
   return (
-    <nav className="flex h-full flex-col justify-between p-4">
+    <nav className={cn("flex h-full flex-col justify-between py-4", collapsed ? "px-2" : "px-4")}>
       <ul className="space-y-1">
         {NAV_ITEMS.map(({ href, label, icon: Icon, exact }) => {
           const isActive = exact ? pathname === href : pathname.startsWith(href);
@@ -39,15 +39,18 @@ export function AdminNav() {
             <li key={href}>
               <Link
                 href={href}
+                title={collapsed ? label : undefined}
+                aria-label={collapsed ? label : undefined}
                 className={cn(
-                  "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                  "flex h-10 items-center rounded-md text-sm font-medium transition-all duration-200",
+                  collapsed ? "justify-center px-0" : "gap-2 px-3",
                   isActive
                     ? "bg-secondary text-secondary-foreground"
                     : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
                 )}
               >
-                <Icon className="h-4 w-4" />
-                {label}
+                <Icon className="h-4 w-4 shrink-0" />
+                {!collapsed && <span className="truncate">{label}</span>}
               </Link>
             </li>
           );
@@ -57,11 +60,13 @@ export function AdminNav() {
       <Button
         variant="ghost"
         size="sm"
-        className="justify-start gap-2 text-muted-foreground"
+        title={collapsed ? "Esci" : undefined}
+        aria-label={collapsed ? "Esci" : undefined}
+        className={cn("text-muted-foreground", collapsed ? "justify-center px-0" : "justify-start gap-2")}
         onClick={() => signOut({ callbackUrl: "/login" })}
       >
         <LogOut className="h-4 w-4" />
-        Esci
+        {!collapsed && "Esci"}
       </Button>
     </nav>
   );

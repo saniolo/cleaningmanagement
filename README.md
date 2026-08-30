@@ -59,7 +59,6 @@ Apri [http://localhost:3000](http://localhost:3000)
 │   │   ├── unassigned/        Attività da assegnare
 │   │   └── settings/
 │   ├── app/[token]/           Dashboard dipendente — link personale, nessun login
-│   │   ├── replacements/
 │   │   ├── absences/
 │   │   └── profile/
 │   └── api/auth/[...nextauth]/
@@ -94,10 +93,10 @@ npm run test:watch                # modalità watch
 ```
 
 Copre esattamente le priorità di PROJECT_SPEC.md sezione 32: isolamento tra dipendenti
-e tra aziende, rilevamento conflitti, impatto delle assenze approvate, workflow di
-sostituzione (incluso un test di concorrenza reale — due `accept` simultanei sulla
-stessa richiesta, verificando che ne vinca esattamente uno), e idempotenza della
-generazione ricorrenze.
+e tra aziende, rilevamento conflitti, impatto delle assenze approvate, il meccanismo
+unificato "Richiede conferma" (incluso un test di concorrenza reale — due `confirmAssignment`
+simultanei sulla stessa attività, verificando che ne vinca esattamente uno), e idempotenza
+della generazione ricorrenze.
 
 ## Script disponibili
 

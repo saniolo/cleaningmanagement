@@ -103,11 +103,10 @@ model Employee {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  company             Company              @relation(fields: [companyId], references: [id])
-  user                User?                @relation(fields: [userId], references: [id])
-  assignments         Assignment[]
-  absenceRequests     AbsenceRequest[]
-  replacementRequests ReplacementRequest[]
+  company         Company          @relation(fields: [companyId], references: [id])
+  user            User?            @relation(fields: [userId], references: [id])
+  assignments     Assignment[]
+  absenceRequests AbsenceRequest[]
 
   @@index([companyId, active])
   @@map("employees")
@@ -206,14 +205,26 @@ model Assignment {
   date                      DateTime         @db.Date
   durationMinutes           Int
   status                    AssignmentStatus @default(UNASSIGNED)
+  // The single mechanism for "this employee needs to accept this activity"
+  // — covers both a fresh proposal (was UNASSIGNED) and a reassignment
+  // (had someone else before). When set on an ASSIGNED activity,
+  // confirmedAt stays null until the employee accepts it; rejecting reverts
+  // the activity to UNASSIGNED instead (employeeId/requiresConfirmation/
+  // confirmedAt all cleared) rather than tracking a separate rejected
+  // state — there's nothing left to represent once nobody owns it anymore.
+  // A pending-confirmation activity still blocks the employee's slot for
+  // conflict checks and still gets freed by an approved absence, exactly
+  // like a confirmed one — this flag only tracks "has this employee said
+  // yes yet", it doesn't change scheduling.
+  requiresConfirmation      Boolean          @default(false)
+  confirmedAt               DateTime?
   sourceRecurringScheduleId String?
   createdAt                 DateTime         @default(now())
   updatedAt                 DateTime         @updatedAt
 
-  service             Service              @relation(fields: [serviceId], references: [id])
-  employee            Employee?            @relation(fields: [employeeId], references: [id])
-  sourceSchedule      RecurringSchedule?   @relation(fields: [sourceRecurringScheduleId], references: [id])
-  replacementRequests ReplacementRequest[]
+  service        Service            @relation(fields: [serviceId], references: [id])
+  employee       Employee?          @relation(fields: [employeeId], references: [id])
+  sourceSchedule RecurringSchedule? @relation(fields: [sourceRecurringScheduleId], references: [id])
 
   // Postgres treats NULLs as distinct, so this only enforces idempotent
   // generation among assignments created from a recurring schedule; manually
@@ -259,32 +270,4 @@ model AbsenceRequest {
   @@index([companyId, status])
   @@index([employeeId, startDate, endDate])
   @@map("absence_requests")
-}
-
-// ---------------------------------------------------------------------------
-// Replacements
-// ---------------------------------------------------------------------------
-
-enum ReplacementStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
-  CANCELLED
-}
-
-model ReplacementRequest {
-  id                 String            @id @default(cuid())
-  companyId          String
-  assignmentId       String
-  proposedEmployeeId String
-  status             ReplacementStatus @default(PENDING)
-  createdAt          DateTime          @default(now())
-  respondedAt        DateTime?
-
-  assignment       Assignment @relation(fields: [assignmentId], references: [id])
-  proposedEmployee Employee   @relation(fields: [proposedEmployeeId], references: [id])
-
-  @@index([assignmentId, status])
-  @@index([proposedEmployeeId, status])
-  @@map("replacement_requests")
 }

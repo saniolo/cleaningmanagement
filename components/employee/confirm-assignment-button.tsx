@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 
-import { acceptReplacementRequest, rejectReplacementRequest } from "./actions";
+import { confirmAssignment, rejectAssignment } from "@/app/app/[token]/confirm-actions";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { Button } from "@/components/ui/button";
 
-export function ReplacementActions({ token, id }: { token: string; id: string }) {
+export function ConfirmAssignmentButton({ token, id }: { token: string; id: string }) {
   const [error, setError] = useState<string | null>(null);
 
   return (
@@ -19,11 +19,12 @@ export function ReplacementActions({ token, id }: { token: string; id: string })
             </Button>
           }
           title="Rifiutare questa attività?"
+          description="Tornerà tra le attività da assegnare, per essere affidata a qualcun altro."
           confirmLabel="Rifiuta"
           variant="destructive"
           onConfirm={async () => {
             setError(null);
-            const result = await rejectReplacementRequest(token, id);
+            const result = await rejectAssignment(token, id);
             if (!result.success) setError(result.error);
           }}
         />
@@ -37,7 +38,7 @@ export function ReplacementActions({ token, id }: { token: string; id: string })
           confirmLabel="Accetta"
           onConfirm={async () => {
             setError(null);
-            const result = await acceptReplacementRequest(token, id);
+            const result = await confirmAssignment(token, id);
             if (!result.success) setError(result.error);
           }}
         />

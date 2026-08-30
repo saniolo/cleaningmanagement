@@ -6,6 +6,10 @@ import { Link2, Pencil, Power, RefreshCw } from "lucide-react";
 import type { Employee } from "@prisma/client";
 import { toggleEmployeeActive, regenerateEmployeeAccessToken } from "./actions";
 import { EmployeeForm } from "./employee-form";
+import { formatShortDateIT } from "@/lib/dates";
+import { cn } from "@/lib/utils";
+import { ABSENCE_TYPE_LABELS_IT } from "@/lib/validation/absence";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
@@ -49,7 +53,18 @@ async function copyToClipboard(text: string): Promise<boolean> {
   return success;
 }
 
-export function EmployeesTable({ employees }: { employees: Employee[] }) {
+interface CurrentAbsence {
+  type: string;
+  endDate: Date;
+}
+
+export function EmployeesTable({
+  employees,
+  currentAbsenceByEmployeeId = {},
+}: {
+  employees: Employee[];
+  currentAbsenceByEmployeeId?: Record<string, CurrentAbsence>;
+}) {
   return (
     <Table>
       <TableHeader>
@@ -63,14 +78,24 @@ export function EmployeesTable({ employees }: { employees: Employee[] }) {
       </TableHeader>
       <TableBody>
         {employees.map((employee) => (
-          <EmployeeRow key={employee.id} employee={employee} />
+          <EmployeeRow
+            key={employee.id}
+            employee={employee}
+            currentAbsence={currentAbsenceByEmployeeId[employee.id]}
+          />
         ))}
       </TableBody>
     </Table>
   );
 }
 
-function EmployeeRow({ employee }: { employee: Employee }) {
+function EmployeeRow({
+  employee,
+  currentAbsence,
+}: {
+  employee: Employee;
+  currentAbsence?: CurrentAbsence;
+}) {
   const [copied, setCopied] = useState(false);
   const [copyFailed, setCopyFailed] = useState(false);
 
@@ -101,10 +126,34 @@ function EmployeeRow({ employee }: { employee: Employee }) {
       <TableCell>{employee.phone ?? "—"}</TableCell>
       <TableCell>{employee.email ?? "—"}</TableCell>
       <TableCell>
-        <StatusBadge active={employee.active} />
+        <div className="flex flex-wrap items-center gap-1.5">
+          <StatusBadge active={employee.active} />
+          {currentAbsence && (
+            <Badge
+              variant="outline"
+              className="border-amber-500/50 bg-amber-500/10 text-amber-700 dark:text-amber-500"
+            >
+              {ABSENCE_TYPE_LABELS_IT[currentAbsence.type] ?? "Assente"} fino al{" "}
+              {formatShortDateIT(currentAbsence.endDate)}
+            </Badge>
+          )}
+        </div>
       </TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end gap-1">
+          {/* Fixed width, always rendered — reserves its space up front so
+              the feedback text appearing/disappearing never shifts the
+              buttons next to it or resizes the column. */}
+          <span
+            className={cn(
+              "w-32 shrink-0 self-center truncate text-right text-xs",
+              copied && "text-muted-foreground",
+              copyFailed && "text-destructive",
+              !copied && !copyFailed && "invisible"
+            )}
+          >
+            {copied ? "Copiato!" : copyFailed ? "Copia non riuscita." : " "}
+          </span>
           <EmployeeForm
             employee={{
               id: employee.id,
@@ -154,10 +203,6 @@ function EmployeeRow({ employee }: { employee: Employee }) {
             confirmLabel={employee.active ? "Disattiva" : "Riattiva"}
             onConfirm={handleToggleActive}
           />
-          {copied && <span className="self-center text-xs text-muted-foreground">Copiato!</span>}
-          {copyFailed && (
-            <span className="self-center text-xs text-destructive">Copia non riuscita.</span>
-          )}
         </div>
       </TableCell>
     </TableRow>
