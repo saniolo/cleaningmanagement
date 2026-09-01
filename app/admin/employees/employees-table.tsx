@@ -5,6 +5,7 @@ import { Link2, Pencil, Power, RefreshCw } from "lucide-react";
 
 import type { Employee } from "@prisma/client";
 import { toggleEmployeeActive, regenerateEmployeeAccessToken } from "./actions";
+import { DeleteEmployeeButton } from "./delete-employee-button";
 import { EmployeeForm } from "./employee-form";
 import { formatShortDateIT } from "@/lib/dates";
 import { cn } from "@/lib/utils";
@@ -202,6 +203,10 @@ function EmployeeRow({
             variant={employee.active ? "destructive" : "default"}
             confirmLabel={employee.active ? "Disattiva" : "Riattiva"}
             onConfirm={handleToggleActive}
+          />
+          <DeleteEmployeeButton
+            employeeId={employee.id}
+            employeeName={`${employee.firstName} ${employee.lastName}`}
           />
         </div>
       </TableCell>
