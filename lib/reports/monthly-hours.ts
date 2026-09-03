@@ -17,8 +17,8 @@ import { monthStringToRange } from "@/lib/dates";
 //   employee on days later covered by an APPROVED absence, attributed by the
 //   absence's type. Sourced from Assignment.freedByAbsenceId, stamped when
 //   the absence was approved.
-// - totalMinutes: ordinary + overtime + vacation + permission + sickness
-//   (pending overtime excluded).
+// - absenceMinutes: vacation + permission + sickness combined.
+// - totalMinutes: ordinary + overtime + absence (pending overtime excluded).
 export interface EmployeeMonthlyHours {
   employeeId: string;
   firstName: string;
@@ -30,6 +30,7 @@ export interface EmployeeMonthlyHours {
   vacationMinutes: number;
   permissionMinutes: number;
   sicknessMinutes: number;
+  absenceMinutes: number;
   totalMinutes: number;
 }
 
@@ -96,6 +97,7 @@ export async function getMonthlyHours(
     vacationMinutes: 0,
     permissionMinutes: 0,
     sicknessMinutes: 0,
+    absenceMinutes: 0,
     totalMinutes: 0,
   }));
   const rowsById = new Map(allRows.map((row) => [row.employeeId, row]));
@@ -122,12 +124,9 @@ export async function getMonthlyHours(
   }
 
   for (const row of allRows) {
-    row.totalMinutes =
-      row.ordinaryMinutes +
-      row.overtimeMinutes +
-      row.vacationMinutes +
-      row.permissionMinutes +
-      row.sicknessMinutes;
+    row.absenceMinutes =
+      row.vacationMinutes + row.permissionMinutes + row.sicknessMinutes;
+    row.totalMinutes = row.ordinaryMinutes + row.overtimeMinutes + row.absenceMinutes;
   }
 
   // Drop inactive employees with nothing in the month; keep every active one
@@ -150,6 +149,7 @@ export interface MonthlyHoursTotals {
   vacationMinutes: number;
   permissionMinutes: number;
   sicknessMinutes: number;
+  absenceMinutes: number;
   totalMinutes: number;
 }
 
@@ -162,6 +162,7 @@ export function sumMonthlyHours(rows: EmployeeMonthlyHours[]): MonthlyHoursTotal
       vacationMinutes: acc.vacationMinutes + r.vacationMinutes,
       permissionMinutes: acc.permissionMinutes + r.permissionMinutes,
       sicknessMinutes: acc.sicknessMinutes + r.sicknessMinutes,
+      absenceMinutes: acc.absenceMinutes + r.absenceMinutes,
       totalMinutes: acc.totalMinutes + r.totalMinutes,
     }),
     {
@@ -171,6 +172,7 @@ export function sumMonthlyHours(rows: EmployeeMonthlyHours[]): MonthlyHoursTotal
       vacationMinutes: 0,
       permissionMinutes: 0,
       sicknessMinutes: 0,
+      absenceMinutes: 0,
       totalMinutes: 0,
     }
   );

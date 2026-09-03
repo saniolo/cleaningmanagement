@@ -74,6 +74,7 @@ export default async function ReportsPage({
                 <TableHead className="text-right">Ferie</TableHead>
                 <TableHead className="text-right">Permessi</TableHead>
                 <TableHead className="text-right">Malattia</TableHead>
+                <TableHead className="text-right">Assenze</TableHead>
                 <TableHead className="text-right">Totale</TableHead>
               </TableRow>
             </TableHeader>
@@ -106,6 +107,9 @@ export default async function ReportsPage({
                   <TableCell className="text-right tabular-nums">
                     {formatMinutesAsHoursIT(r.sicknessMinutes)}
                   </TableCell>
+                  <TableCell className="text-right font-medium tabular-nums">
+                    {formatMinutesAsHoursIT(r.absenceMinutes)}
+                  </TableCell>
                   <TableCell className="text-right font-semibold tabular-nums">
                     {formatMinutesAsHoursIT(r.totalMinutes)}
                   </TableCell>
@@ -131,6 +135,9 @@ export default async function ReportsPage({
                   {formatMinutesAsHoursIT(totals.sicknessMinutes)}
                 </TableCell>
                 <TableCell className="text-right font-semibold tabular-nums">
+                  {formatMinutesAsHoursIT(totals.absenceMinutes)}
+                </TableCell>
+                <TableCell className="text-right font-semibold tabular-nums">
                   {formatMinutesAsHoursIT(totals.totalMinutes)}
                 </TableCell>
               </TableRow>
@@ -144,8 +151,9 @@ export default async function ReportsPage({
         <strong>Straordinari</strong>: attività da confermare che il dipendente ha accettato; quelle
         ancora in sospeso a fine mese sono indicate a parte e non entrano nel totale.{" "}
         <strong>Ferie / Permessi / Malattia</strong>: ore delle attività che risultavano pianificate
-        per il dipendente nei giorni di un&apos;assenza approvata. Il <strong>Totale</strong> somma
-        tutte le voci per ciascun dipendente.
+        per il dipendente nei giorni di un&apos;assenza approvata. <strong>Assenze</strong> è la somma
+        di Ferie, Permessi e Malattia. Il <strong>Totale</strong> è Ordinarie + Straordinari +
+        Assenze per ciascun dipendente.
       </p>
     </div>
   );

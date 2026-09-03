@@ -105,8 +105,49 @@ describe("getMonthlyHours", () => {
     const row = await rowFor(company.id, "2026-05", employee.id);
     expect(row!.sicknessMinutes).toBe(300);
     expect(row!.vacationMinutes).toBe(0);
+    expect(row!.absenceMinutes).toBe(300); // Ferie + Permessi + Malattia
     expect(row!.ordinaryMinutes).toBe(0); // the assignments were freed
     expect(row!.totalMinutes).toBe(300);
+  });
+
+  it("sums Ferie, Permessi and Malattia into absenceMinutes", async () => {
+    const company = await createTestCompany();
+    mockAdminSession(company.id);
+    const employee = await createTestEmployee(company.id);
+    const { service } = await createTestServiceChain(company.id);
+
+    const cases: [string, "VACATION" | "PERMISSION" | "SICKNESS", number][] = [
+      ["2026-05-04", "VACATION", 60],
+      ["2026-05-06", "PERMISSION", 90],
+      ["2026-05-08", "SICKNESS", 120],
+    ];
+    for (const [date, type, durationMinutes] of cases) {
+      await createTestAssignment({
+        companyId: company.id,
+        serviceId: service.id,
+        date,
+        durationMinutes,
+        employeeId: employee.id,
+      });
+      const absence = await prisma.absenceRequest.create({
+        data: {
+          companyId: company.id,
+          employeeId: employee.id,
+          type,
+          startDate: dateStringToDateValue(date),
+          endDate: dateStringToDateValue(date),
+          status: "PENDING",
+        },
+      });
+      await approveAbsenceRequest(absence.id);
+    }
+
+    const row = await rowFor(company.id, "2026-05", employee.id);
+    expect(row!.vacationMinutes).toBe(60);
+    expect(row!.permissionMinutes).toBe(90);
+    expect(row!.sicknessMinutes).toBe(120);
+    expect(row!.absenceMinutes).toBe(270);
+    expect(row!.totalMinutes).toBe(270);
   });
 
   it("keeps freed-absence hours in the month the day falls in, not where the absence starts", async () => {

@@ -15,6 +15,7 @@ const HEADER = [
   "Ferie (h)",
   "Permessi (h)",
   "Malattia (h)",
+  "Assenze (h)",
   "Totale (h)",
 ];
 
@@ -46,6 +47,7 @@ export async function GET(request: Request) {
       minutesToDecimalHoursIT(r.vacationMinutes),
       minutesToDecimalHoursIT(r.permissionMinutes),
       minutesToDecimalHoursIT(r.sicknessMinutes),
+      minutesToDecimalHoursIT(r.absenceMinutes),
       minutesToDecimalHoursIT(r.totalMinutes),
     ]),
     [
@@ -57,6 +59,7 @@ export async function GET(request: Request) {
       minutesToDecimalHoursIT(totals.vacationMinutes),
       minutesToDecimalHoursIT(totals.permissionMinutes),
       minutesToDecimalHoursIT(totals.sicknessMinutes),
+      minutesToDecimalHoursIT(totals.absenceMinutes),
       minutesToDecimalHoursIT(totals.totalMinutes),
     ],
   ]
