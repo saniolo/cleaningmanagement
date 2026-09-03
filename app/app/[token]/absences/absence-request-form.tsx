@@ -36,12 +36,30 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
-const DEFAULT_VALUES: AbsenceRequestInput = {
-  type: "VACATION",
-  startDate: "",
-  endDate: "",
-  notes: undefined,
-};
+// Local (not UTC) YYYY-MM-DD — this feeds a native <input type="date">,
+// whose displayed value is the user's local calendar day.
+function todayLocalISODate(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+// Dates start pre-filled to today rather than blank: an empty native date
+// input only renders a "gg/mm/aaaa" placeholder that some browsers draw as
+// today's date, so it looks filled but submits an empty string and trips
+// the "data obbligatoria" validation. Defaulting to today also makes a
+// single-day request a zero-edit submit.
+function buildDefaultValues(): AbsenceRequestInput {
+  const today = todayLocalISODate();
+  return {
+    type: "VACATION",
+    startDate: today,
+    endDate: today,
+    notes: undefined,
+  };
+}
 
 export function AbsenceRequestForm({
   token,
@@ -55,7 +73,7 @@ export function AbsenceRequestForm({
 
   const form = useForm<AbsenceRequestInput>({
     resolver: zodResolver(absenceRequestSchema),
-    defaultValues: DEFAULT_VALUES,
+    defaultValues: buildDefaultValues(),
   });
 
   async function onSubmit(values: AbsenceRequestInput) {
@@ -73,7 +91,7 @@ export function AbsenceRequestForm({
   function handleOpenChange(next: boolean) {
     setOpen(next);
     if (next) {
-      form.reset(DEFAULT_VALUES);
+      form.reset(buildDefaultValues());
       setServerError(null);
     }
   }
