@@ -221,12 +221,20 @@ model Assignment {
   requiresConfirmation      Boolean          @default(false)
   confirmedAt               DateTime?
   sourceRecurringScheduleId String?
+  // Set when an approved absence released this occurrence from the employee
+  // who held it (see approveAbsenceRequest). The row is still reverted to
+  // UNASSIGNED with employeeId cleared exactly as before — this only records
+  // "these hours were lost to <employee>'s <absence>" so the monthly hours
+  // report can attribute them by absence type. Stays set even if the shift
+  // is later handed to someone else to cover.
+  freedByAbsenceId          String?
   createdAt                 DateTime         @default(now())
   updatedAt                 DateTime         @updatedAt
 
   service        Service            @relation(fields: [serviceId], references: [id])
   employee       Employee?          @relation(fields: [employeeId], references: [id])
   sourceSchedule RecurringSchedule? @relation(fields: [sourceRecurringScheduleId], references: [id])
+  freedByAbsence AbsenceRequest?    @relation("AbsenceFreedAssignments", fields: [freedByAbsenceId], references: [id])
 
   // Postgres treats NULLs as distinct, so this only enforces idempotent
   // generation among assignments created from a recurring schedule; manually
@@ -234,6 +242,7 @@ model Assignment {
   @@unique([sourceRecurringScheduleId, date])
   @@index([companyId, date])
   @@index([employeeId, date])
+  @@index([freedByAbsenceId])
   @@map("assignments")
 }
 
@@ -267,7 +276,10 @@ model AbsenceRequest {
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
 
-  employee Employee @relation(fields: [employeeId], references: [id])
+  employee         Employee     @relation(fields: [employeeId], references: [id])
+  // Occurrences this absence released back to UNASSIGNED on approval, kept
+  // linked so the monthly hours report can total the hours lost to it.
+  freedAssignments Assignment[] @relation("AbsenceFreedAssignments")
 
   @@index([companyId, status])
   @@index([employeeId, startDate, endDate])

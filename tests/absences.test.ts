@@ -60,6 +60,8 @@ describe("approveAbsenceRequest", () => {
     const refreshedIn = await prisma.assignment.findUniqueOrThrow({ where: { id: inRange.id } });
     expect(refreshedIn.status).toBe("UNASSIGNED");
     expect(refreshedIn.employeeId).toBeNull();
+    // Stamped so the monthly hours report can still attribute these hours.
+    expect(refreshedIn.freedByAbsenceId).toBe(absence.id);
 
     const refreshedOut = await prisma.assignment.findUniqueOrThrow({
       where: { id: outOfRange.id },

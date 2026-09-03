@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { CalendarDays, LayoutDashboard, LogOut, Users, UserSquare2 } from "lucide-react";
+import { CalendarDays, Clock, LayoutDashboard, LogOut, Users, UserSquare2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { href: "/admin/employees", label: "Dipendenti", icon: Users },
   { href: "/admin/customers", label: "Clienti e attività", icon: UserSquare2 },
   { href: "/admin/absences", label: "Assenze", icon: CalendarDays },
+  { href: "/admin/reports", label: "Riepilogo ore", icon: Clock },
 ];
 
 export function AdminNav({

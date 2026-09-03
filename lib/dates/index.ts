@@ -107,3 +107,36 @@ export function formatDateRangeIT(start: Date, end: Date): string {
   }
   return `${formatLongDateIT(start)} – ${formatLongDateIT(end)}`;
 }
+
+// ---------------------------------------------------------------------------
+// Month strings ("YYYY-MM") — used by the monthly hours report. Kept as bare
+// year-month strings with no timezone, expanded to a UTC date range only at
+// the query boundary (monthStringToRange), same discipline as the date
+// helpers above.
+// ---------------------------------------------------------------------------
+
+export const MONTH_STRING_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+export function currentMonthString(reference: Date = new Date()): string {
+  return `${reference.getUTCFullYear()}-${String(reference.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+export function shiftMonthString(month: string, delta: number): string {
+  const [year, m] = month.split("-").map(Number);
+  return currentMonthString(new Date(Date.UTC(year, m - 1 + delta, 1)));
+}
+
+// Inclusive [start, end] covering the whole month, as @db.Date-compatible
+// UTC-midnight values (end = last day of the month).
+export function monthStringToRange(month: string): { start: Date; end: Date } {
+  const [year, m] = month.split("-").map(Number);
+  return {
+    start: new Date(Date.UTC(year, m - 1, 1)),
+    end: new Date(Date.UTC(year, m, 0)),
+  };
+}
+
+export function formatMonthLabelIT(month: string): string {
+  const [year, m] = month.split("-").map(Number);
+  return `${MONTH_LABELS_IT[m - 1]} ${year}`;
+}

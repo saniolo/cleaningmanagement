@@ -19,6 +19,12 @@ function revalidateAbsenceViews() {
 // delete the assignment itself, the service obligation still exists. Both
 // writes go through prisma.$transaction so a crash between them can't leave
 // an approved absence with the employee still showing as assigned.
+//
+// Each freed occurrence also gets stamped with freedByAbsenceId: once
+// employeeId is cleared there's otherwise nothing left tying those hours to
+// this employee, and the monthly hours report needs that link to total the
+// hours lost to ferie / permessi / malattia. The stamp survives the shift
+// later being reassigned to someone else to cover.
 export async function approveAbsenceRequest(
   id: string
 ): Promise<ActionResult<{ impacted: number }>> {
@@ -44,7 +50,7 @@ export async function approveAbsenceRequest(
         status: "ASSIGNED",
         date: { gte: absence.startDate, lte: absence.endDate },
       },
-      data: { employeeId: null, status: "UNASSIGNED" },
+      data: { employeeId: null, status: "UNASSIGNED", freedByAbsenceId: id },
     }),
   ]);
 

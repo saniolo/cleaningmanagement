@@ -70,6 +70,9 @@ export async function createTestAssignment(params: {
   durationMinutes?: number;
   employeeId?: string;
   sourceRecurringScheduleId?: string;
+  requiresConfirmation?: boolean;
+  confirmedAt?: Date | null;
+  freedByAbsenceId?: string;
 }) {
   return prisma.assignment.create({
     data: {
@@ -80,6 +83,9 @@ export async function createTestAssignment(params: {
       employeeId: params.employeeId ?? null,
       status: params.employeeId ? "ASSIGNED" : "UNASSIGNED",
       sourceRecurringScheduleId: params.sourceRecurringScheduleId ?? null,
+      requiresConfirmation: params.requiresConfirmation ?? false,
+      confirmedAt: params.confirmedAt ?? null,
+      freedByAbsenceId: params.freedByAbsenceId ?? null,
     },
   });
 }
