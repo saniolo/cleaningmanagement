@@ -242,10 +242,15 @@ export function PlanningGrid({
                       // A pending absence doesn't auto-clear assignments the
                       // way an approved one does — surface any that still
                       // exist across the spanned dates instead of hiding
-                      // them under the wide banner.
-                      const spannedAssignments = run.pending
-                        ? spanDates.flatMap((d) => employee.byDate[d] ?? [])
+                      // them under the wide banner. Keep them grouped by day
+                      // so a single-day activity stays under its own column
+                      // rather than stretching across the whole colSpan.
+                      const spannedAssignmentsByDay = run.pending
+                        ? spanDates.map((d) => employee.byDate[d] ?? [])
                         : [];
+                      const hasSpannedAssignments = spannedAssignmentsByDay.some(
+                        (list) => list.length > 0
+                      );
 
                       return (
                         <TableCell
@@ -271,9 +276,18 @@ export function PlanningGrid({
                               {ABSENCE_TYPE_LABELS_IT[run.type] ?? "Assente"}
                             </div>
                           )}
-                          {spannedAssignments.length > 0 && (
-                            <div className="space-y-1.5">
-                              {spannedAssignments.map(renderAssignmentButton)}
+                          {hasSpannedAssignments && (
+                            <div
+                              className="grid gap-[13px]"
+                              style={{
+                                gridTemplateColumns: `repeat(${run.length}, minmax(0, 1fr))`,
+                              }}
+                            >
+                              {spannedAssignmentsByDay.map((list, idx) => (
+                                <div key={spanDates[idx]} className="space-y-1.5">
+                                  {list.map(renderAssignmentButton)}
+                                </div>
+                              ))}
                             </div>
                           )}
                         </TableCell>
