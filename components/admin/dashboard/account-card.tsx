@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Mail } from "lucide-react";
+import { Mail, AlertTriangle } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
 
@@ -8,11 +8,19 @@ interface AccountCardProps {
   initials: string;
   email: string;
   roleLabel: string;
+  mustChangePassword?: boolean;
   /** The existing AdminProfileForm, triggered by a full-width outline button. */
   editSlot: ReactNode;
 }
 
-export function AccountCard({ name, initials, email, roleLabel, editSlot }: AccountCardProps) {
+export function AccountCard({
+  name,
+  initials,
+  email,
+  roleLabel,
+  mustChangePassword = false,
+  editSlot,
+}: AccountCardProps) {
   return (
     <Card className="flex h-full flex-col rounded-2xl border-slate-200/80 p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]">
       <h2 className="text-sm font-semibold text-slate-900">Il tuo account</h2>
@@ -32,13 +40,19 @@ export function AccountCard({ name, initials, email, roleLabel, editSlot }: Acco
         <span className="truncate">{email}</span>
       </div>
 
-      <div className="mt-3">
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
         <span className="inline-flex items-center rounded-md bg-indigo-50 px-2 py-0.5 text-[11px] font-medium text-indigo-700">
           {roleLabel}
         </span>
+        {mustChangePassword && (
+          <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+            <AlertTriangle className="h-3 w-3" />
+            Cambia password
+          </span>
+        )}
       </div>
 
-      <div className="mt-auto border-t border-slate-100 pt-4">{editSlot}</div>
+      <div className="mt-auto pt-4">{editSlot}</div>
     </Card>
   );
 }

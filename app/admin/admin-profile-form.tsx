@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { AlertTriangle } from "lucide-react";
 
 import { adminProfileSchema, type AdminProfileInput } from "@/lib/validation/admin-profile";
 import { updateAdminProfile } from "./actions";
@@ -30,6 +31,7 @@ interface AdminProfileFormProps {
     firstName: string;
     lastName: string;
     email: string;
+    mustChangePassword: boolean;
   };
 }
 
@@ -79,6 +81,13 @@ export function AdminProfileForm({ trigger, admin }: AdminProfileFormProps) {
         <DialogHeader>
           <DialogTitle>Modifica account</DialogTitle>
         </DialogHeader>
+
+        {admin.mustChangePassword && (
+          <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+            <span>Devi impostare una nuova password: quella attuale è provvisoria.</span>
+          </div>
+        )}
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">

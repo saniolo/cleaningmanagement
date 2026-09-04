@@ -5,6 +5,7 @@ import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { usePathname } from "next/navigation";
 
 import { AdminNav } from "@/components/admin/admin-nav";
+import { DottedBackground } from "@/components/shared/dotted-background";
 import { cn } from "@/lib/utils";
 
 export function AdminShell({
@@ -35,10 +36,11 @@ export function AdminShell({
   return (
     <div
       className={cn(
-        "flex bg-[#F7F8FA]",
+        "relative isolate flex bg-[#F7F8FA]",
         isPlanning ? "h-dvh overflow-hidden" : "min-h-screen"
       )}
     >
+      <DottedBackground />
       <aside
         className={cn(
           "relative h-dvh shrink-0 border-r border-slate-200/80 bg-white transition-[width] duration-200 ease-out",

@@ -175,132 +175,124 @@ export default async function AdminDashboardPage() {
         firstName: currentUser.firstName ?? "",
         lastName: currentUser.lastName ?? "",
         email: currentUser.email,
+        mustChangePassword: currentUser.mustChangePassword,
       }
     : null;
 
   return (
-    <div className="relative isolate -m-6 min-h-dvh overflow-hidden p-6 2xl:-m-8 2xl:p-8">
-      <div
-        className="pointer-events-none absolute inset-0 -z-10"
-        style={{
-          backgroundImage: "radial-gradient(circle, rgb(148 163 184 / 0.3) 1px, transparent 1px)",
-          backgroundSize: "22px 22px",
-        }}
-      />
+    <div className="space-y-6">
+      <DashboardHeader title="Dashboard" greeting={greeting} dateLabel={dateLabel} />
 
-      <div className="space-y-6">
-        <DashboardHeader title="Dashboard" greeting={greeting} dateLabel={dateLabel} />
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        <KpiCard
+          href="/admin/absences"
+          icon={CalendarClock}
+          tone="indigo"
+          title="Richieste di assenza"
+          subtitle="In attesa"
+          value={pendingAbsencesCount}
+        >
+          {pendingAbsenceItems.length > 0 && (
+            <ul className="space-y-1.5">
+              {pendingAbsenceItems.map((a) => (
+                <KpiPreviewRow key={a.id} tone="indigo">
+                  {a.employee.firstName} {a.employee.lastName} —{" "}
+                  {ABSENCE_TYPE_LABELS_IT[a.type] ?? a.type} ·{" "}
+                  {formatDateRangeIT(a.startDate, a.endDate)}
+                </KpiPreviewRow>
+              ))}
+              {pendingAbsencesCount > pendingAbsenceItems.length && (
+                <KpiPreviewMore>
+                  +{pendingAbsencesCount - pendingAbsenceItems.length} altre richieste
+                </KpiPreviewMore>
+              )}
+            </ul>
+          )}
+        </KpiCard>
 
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          <KpiCard
-            href="/admin/absences"
-            icon={CalendarClock}
-            tone="indigo"
-            title="Richieste di assenza"
-            subtitle="In attesa"
-            value={pendingAbsencesCount}
-          >
-            {pendingAbsenceItems.length > 0 && (
-              <ul className="space-y-1.5">
-                {pendingAbsenceItems.map((a) => (
-                  <KpiPreviewRow key={a.id} tone="indigo">
-                    {a.employee.firstName} {a.employee.lastName} —{" "}
-                    {ABSENCE_TYPE_LABELS_IT[a.type] ?? a.type} ·{" "}
-                    {formatDateRangeIT(a.startDate, a.endDate)}
-                  </KpiPreviewRow>
-                ))}
-                {pendingAbsencesCount > pendingAbsenceItems.length && (
-                  <KpiPreviewMore>
-                    +{pendingAbsencesCount - pendingAbsenceItems.length} altre richieste
-                  </KpiPreviewMore>
-                )}
-              </ul>
-            )}
-          </KpiCard>
+        <KpiCard
+          href="/admin/planning"
+          icon={ClipboardList}
+          tone="blue"
+          title="Attività da assegnare"
+          subtitle="Questa settimana"
+          value={unassignedCount}
+        >
+          {unassignedItems.length > 0 && (
+            <ul className="space-y-1.5">
+              {unassignedItems.map((a) => (
+                <KpiPreviewRow key={a.id} tone="blue">
+                  {a.service.name} — {a.service.customer.name} · {formatShortDateIT(a.date)}
+                </KpiPreviewRow>
+              ))}
+              {unassignedCount > unassignedItems.length && (
+                <KpiPreviewMore>
+                  +{unassignedCount - unassignedItems.length} altre attività
+                </KpiPreviewMore>
+              )}
+            </ul>
+          )}
+        </KpiCard>
 
-          <KpiCard
-            href="/admin/planning"
-            icon={ClipboardList}
-            tone="blue"
-            title="Attività da assegnare"
-            subtitle="Questa settimana"
-            value={unassignedCount}
-          >
-            {unassignedItems.length > 0 && (
-              <ul className="space-y-1.5">
-                {unassignedItems.map((a) => (
-                  <KpiPreviewRow key={a.id} tone="blue">
-                    {a.service.name} — {a.service.customer.name} · {formatShortDateIT(a.date)}
-                  </KpiPreviewRow>
-                ))}
-                {unassignedCount > unassignedItems.length && (
-                  <KpiPreviewMore>
-                    +{unassignedCount - unassignedItems.length} altre attività
-                  </KpiPreviewMore>
-                )}
-              </ul>
-            )}
-          </KpiCard>
-
-          <KpiCard
-            href="/admin/planning"
-            icon={CheckCircle2}
-            tone="green"
-            title="Attività da confermare"
-            subtitle="Questa settimana"
-            value={pendingConfirmationsCount}
-          >
-            {pendingConfirmationItems.length > 0 ? (
-              <ul className="space-y-1.5">
-                {pendingConfirmationItems.map((a) => (
-                  <KpiPreviewRow key={a.id} tone="green">
-                    {a.service.name} — {a.service.customer.name} ({a.employee?.firstName}{" "}
-                    {a.employee?.lastName}) · {formatShortDateIT(a.date)}
-                  </KpiPreviewRow>
-                ))}
-                {pendingConfirmationsCount > pendingConfirmationItems.length && (
-                  <KpiPreviewMore>
-                    +{pendingConfirmationsCount - pendingConfirmationItems.length} altre attività
-                  </KpiPreviewMore>
-                )}
-              </ul>
-            ) : (
-              <KpiEmptyState
-                title="Tutto confermato"
-                description="Nessuna attività da confermare questa settimana."
-              />
-            )}
-          </KpiCard>
-        </div>
-
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <WeekOverviewCard days={overviewDays} planningHref="/admin/planning" />
-          </div>
-
-          {currentUser && (
-            <AccountCard
-              name={
-                currentUser.firstName
-                  ? `${currentUser.firstName} ${currentUser.lastName ?? ""}`.trim()
-                  : "Nome non impostato"
-              }
-              initials={initials}
-              email={currentUser.email}
-              roleLabel={ROLE_LABEL}
-              editSlot={
-                <AdminProfileForm
-                  admin={profileFormAdmin!}
-                  trigger={
-                    <Button variant="outline" size="sm" className="w-full">
-                      Modifica profilo
-                    </Button>
-                  }
-                />
-              }
+        <KpiCard
+          href="/admin/planning"
+          icon={CheckCircle2}
+          tone="green"
+          title="Attività da confermare"
+          subtitle="Questa settimana"
+          value={pendingConfirmationsCount}
+        >
+          {pendingConfirmationItems.length > 0 ? (
+            <ul className="space-y-1.5">
+              {pendingConfirmationItems.map((a) => (
+                <KpiPreviewRow key={a.id} tone="green">
+                  {a.service.name} — {a.service.customer.name} ({a.employee?.firstName}{" "}
+                  {a.employee?.lastName}) · {formatShortDateIT(a.date)}
+                </KpiPreviewRow>
+              ))}
+              {pendingConfirmationsCount > pendingConfirmationItems.length && (
+                <KpiPreviewMore>
+                  +{pendingConfirmationsCount - pendingConfirmationItems.length} altre attività
+                </KpiPreviewMore>
+              )}
+            </ul>
+          ) : (
+            <KpiEmptyState
+              title="Tutto confermato"
+              description="Nessuna attività da confermare questa settimana."
             />
           )}
+        </KpiCard>
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <WeekOverviewCard days={overviewDays} planningHref="/admin/planning" />
         </div>
+
+        {currentUser && (
+          <AccountCard
+            name={
+              currentUser.firstName
+                ? `${currentUser.firstName} ${currentUser.lastName ?? ""}`.trim()
+                : "Nome non impostato"
+            }
+            initials={initials}
+            email={currentUser.email}
+            roleLabel={ROLE_LABEL}
+            mustChangePassword={currentUser.mustChangePassword}
+            editSlot={
+              <AdminProfileForm
+                admin={profileFormAdmin!}
+                trigger={
+                  <Button variant="outline" size="sm" className="w-full">
+                    Modifica profilo
+                  </Button>
+                }
+              />
+            }
+          />
+        )}
       </div>
     </div>
   );

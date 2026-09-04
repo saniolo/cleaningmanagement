@@ -22,7 +22,7 @@ export default function GlobalError({
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-8 text-center">
-      <h1 className="text-xl font-semibold">Si è verificato un errore imprevisto.</h1>
+      <h1 className="font-serif text-xl">Si è verificato un errore imprevisto.</h1>
       <p className="max-w-sm text-sm text-muted-foreground">
         Riprova. Se il problema persiste, contatta l&apos;amministratore.
       </p>
