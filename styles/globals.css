@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Safari applica di default una transizione nativa (slide) alle navigazioni
+   di pagina; l'app non usa la View Transitions API, quindi la disabilitiamo
+   esplicitamente per evitare l'effetto "scorrimento" indesiderato. */
+@view-transition {
+  navigation: none;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;

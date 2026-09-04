@@ -7,8 +7,6 @@ import { usePathname } from "next/navigation";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { cn } from "@/lib/utils";
 
-const STORAGE_KEY = "admin-sidebar-collapsed";
-
 export function AdminShell({
   children,
   pendingAbsencesCount = 0,
@@ -16,20 +14,22 @@ export function AdminShell({
   children: React.ReactNode;
   pendingAbsencesCount?: number;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
   const pathname = usePathname();
+  const isDashboard = pathname === "/admin";
   const isPlanning = pathname.startsWith("/admin/planning");
 
+  // Aperto di default solo nella dashboard (/admin), chiuso nelle altre
+  // pagine — si ripristina a questa regola a ogni cambio di pagina, ma
+  // resta comunque possibile aprirlo/chiuderlo manualmente per la pagina
+  // corrente tramite il pulsante.
+  const [collapsed, setCollapsed] = useState(!isDashboard);
+
   useEffect(() => {
-    setCollapsed(window.localStorage.getItem(STORAGE_KEY) === "true");
-  }, []);
+    setCollapsed(!isDashboard);
+  }, [isDashboard]);
 
   function toggleSidebar() {
-    setCollapsed((current) => {
-      const next = !current;
-      window.localStorage.setItem(STORAGE_KEY, String(next));
-      return next;
-    });
+    setCollapsed((current) => !current);
   }
 
   return (
@@ -42,7 +42,7 @@ export function AdminShell({
       <aside
         className={cn(
           "relative h-dvh shrink-0 border-r border-slate-200/80 bg-white transition-[width] duration-200 ease-out",
-          collapsed ? "w-16" : "w-64"
+          collapsed ? "w-16" : "w-60"
         )}
       >
         <button
